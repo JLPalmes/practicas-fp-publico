@@ -1,0 +1,62 @@
+name: Compilar y publicar Mac y Windows
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar y compilar
+        run: |
+          ./Validar.command
+          ./Compilar.command
+          codesign --verify --deep --strict PracticasFP.app
+          test "$(lipo -archs PracticasFP.app/Contents/MacOS/PracticasFP)" = arm64
+      - name: Preparar instalador
+        run: |
+          mkdir -p dist/Mac/Contenido
+          cp -R PracticasFP.app dist/Mac/Contenido/
+          cp LICENSE AVISO-LICENCIA.txt dist/Mac/Contenido/
+          ln -s /Applications dist/Mac/Contenido/Aplicaciones
+          printf 'Arrastra PracticasFP.app a Aplicaciones. Cierra la versión anterior antes de reemplazarla. Los datos se conservan por separado.\n' > dist/Mac/Contenido/Instalación.txt
+          hdiutil create -volname 'Prácticas FP 1.8.2 · Apple Silicon' -srcfolder dist/Mac/Contenido -format UDZO dist/Mac/PracticasFP-1.8.2-AppleSilicon-Instalador.dmg
+          hdiutil verify dist/Mac/PracticasFP-1.8.2-AppleSilicon-Instalador.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instalador-mac
+          path: dist/Mac/*.dmg
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar y probar
+        shell: powershell
+        run: ./Windows/Compilar.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instalador-windows
+          path: dist/Windows/Instalar-*.exe
+  publicar:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [mac, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: instalador-*
+          path: distribucion
+          merge-multiple: true
+      - name: Publicar instaladores y licencia
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp LICENSE AVISO-LICENCIA.txt distribucion/
+          (cd distribucion && sha256sum *.dmg *.exe LICENSE AVISO-LICENCIA.txt > SHA256SUMS.txt)
+          gh release create "$GITHUB_REF_NAME" distribucion/* --verify-tag --title 'Prácticas FP · Mac 1.8.2 y Windows 1.8.2-windows.2' --notes-file NOTAS-PUBLICACION.md

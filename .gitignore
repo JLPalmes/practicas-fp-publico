@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+
+# Aplicación y artefactos compilados
+*.app
+*.dmg
+*.zip
+*.log
+
+# Binarios y compilaciones
+build/
+dist/
+DerivedData/
+.build/
+arm64/
+x86_64/
+
+# Datos de usuario
+datos.json
+Copias/
+store-*/
+
+# Datos importados
+*.csv
+*.xlsx
+*.xls
+*.ods
+
+# Ejecutables Windows
+*.exe
+*.pdb

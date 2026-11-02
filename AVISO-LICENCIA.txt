@@ -1,0 +1,14 @@
+Prácticas FP
+Copyright (C) 2026 Juan Luis (JLPalmes)
+
+Este programa es software libre: puede redistribuirlo y modificarlo bajo los
+términos de la GNU Affero General Public License, versión 3 exclusivamente
+(SPDX: AGPL-3.0-only). Se distribuye sin garantía, incluida la garantía implícita
+de comerciabilidad o idoneidad para un fin determinado.
+
+El texto íntegro de la licencia se encuentra en LICENSE.
+Código fuente y procedimientos de compilación correspondientes:
+https://github.com/JLPalmes/practicas-fp-publico
+
+La licencia del programa no cambia la titularidad ni la privacidad de los datos
+que sus usuarios introduzcan. No publique sus fichas ni sus copias de seguridad.
