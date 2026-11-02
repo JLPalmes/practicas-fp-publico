@@ -26,24 +26,32 @@ struct DocumentTimeline: View {
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 0) {
                     ForEach(Array(flow.kind.stages.enumerated()), id: \.element.0) { index, stage in
-                        let item = flow.milestones.first { $0.id == stage.0 }!
-                        Button { selected = stage.0 } label: {
-                            VStack(spacing: 6) {
-                                Image(systemName: item.completed ? "checkmark.circle.fill" : "circle").font(.title2).foregroundStyle(item.completed ? accent : Color.secondary)
-                                Text(stage.1).font(.caption).multilineTextAlignment(.center).frame(width: 108).frame(minHeight: 30)
-                                Text(item.completed ? item.date.map(dateText) ?? "Fecha sin registrar" : "Pendiente").font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(width: 108)
-                            }.padding(.vertical, 6)
-                        }.buttonStyle(.plain).accessibilityLabel(flow.kind.title + " · " + stage.1)
-                            .accessibilityValue(item.completed ? "Hecho" : "Pendiente")
-                            .popover(isPresented: Binding(get: { selected == stage.0 }, set: { if !$0 { selected = nil } })) {
-                                milestoneEditor(stage.0, title: stage.1)
-                            }
+                        milestoneButton(stage.0, title: stage.1)
                         if index < flow.kind.stages.count - 1 { Rectangle().fill(accent.opacity(0.3)).frame(width: 24, height: 2).padding(.top, 18) }
                     }
                 }.padding(.horizontal, 4)
             }
             Text("Siguiente hito pendiente: " + flow.nextTitle).font(.caption).foregroundStyle(.secondary)
         }.padding(10).background(accent.opacity(0.035)).clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+    private func milestonePresentation(_ id: String) -> Binding<Bool> {
+        Binding<Bool>(get: { selected == id }, set: { isPresented in
+            if !isPresented { selected = nil }
+        })
+    }
+    private func milestoneButton(_ id: String, title: String) -> some View {
+        let item = flow.milestones.first { $0.id == id }!
+        return Button { selected = id } label: {
+            VStack(spacing: 6) {
+                Image(systemName: item.completed ? "checkmark.circle.fill" : "circle").font(.title2).foregroundStyle(item.completed ? accent : Color.secondary)
+                Text(title).font(.caption).multilineTextAlignment(.center).frame(width: 108).frame(minHeight: 30)
+                Text(item.completed ? item.date.map(dateText) ?? "Fecha sin registrar" : "Pendiente").font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(width: 108)
+            }.padding(.vertical, 6)
+        }.buttonStyle(.plain).accessibilityLabel(flow.kind.title + " · " + title)
+            .accessibilityValue(item.completed ? "Hecho" : "Pendiente")
+            .popover(isPresented: milestonePresentation(id)) {
+                milestoneEditor(id, title: title)
+            }
     }
     private func milestoneEditor(_ id: String, title: String) -> some View {
         let done = flow.done(id)
