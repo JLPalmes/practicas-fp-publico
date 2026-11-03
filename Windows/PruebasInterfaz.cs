@@ -53,8 +53,12 @@ class UiTests {
                 Check(Field<string>(form,"selected")==J.S(initial,"id"),"Alumnas abre automáticamente su primera ficha");
                 var split=Field<SplitContainer>(form,"split");
                 Check(!split.Panel1Collapsed&&!split.Panel2Collapsed,"Panel y ficha permanecen visibles");
-                Check(!Field<Panel>(form,"editor").HorizontalScroll.Visible,"Ficha estrecha sin barra horizontal");
                 Snapshot(form,output,"alumnas-estrecha");
+                var editor=Field<Panel>(form,"editor");
+                Console.WriteLine("LAYOUT editor "+editor.ClientSize+" display "+editor.DisplayRectangle);
+                foreach(var control in All(editor).Where(c=>c.Parent!=null&&c.Right>c.Parent.ClientSize.Width))
+                    Console.WriteLine("EXCESO "+control.GetType().Name+" tag="+control.Tag+" width="+control.Width+" right="+control.Right+" parent="+control.Parent.GetType().Name+" width="+control.Parent.ClientSize.Width);
+                Check(!editor.HorizontalScroll.Visible,"Ficha estrecha sin barra horizontal");
                 var content=Field<FlowLayoutPanel>(form,"content");
                 var milestone=All(content).OfType<CheckBox>().First(c=>(c.Tag as string??"").Contains("annexI|generated"));
                 milestone.Checked=true;Pump();

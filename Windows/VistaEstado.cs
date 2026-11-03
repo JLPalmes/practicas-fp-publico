@@ -107,7 +107,8 @@ namespace PracticasFP {
         void FitFields() {
             int width=FieldWidth;
             content.SuspendLayout();
-            content.Width=width+content.Padding.Horizontal+6;
+            content.MaximumSize=new Size(width+content.Padding.Horizontal+6,0);
+            content.Width=content.MaximumSize.Width;
             foreach(Control child in content.Controls)FitControl(child,width);
             content.ResumeLayout(true);
         }
@@ -115,6 +116,7 @@ namespace PracticasFP {
             width=Math.Max(120,width-control.Margin.Horizontal);
             var flow=control as FlowLayoutPanel;
             if(flow!=null) {
+                flow.MaximumSize=new Size(width,0);
                 flow.Width=width;
                 if((string)flow.Tag=="document-grid") {
                     int columns=Math.Max(1,width/154);
@@ -209,6 +211,7 @@ namespace PracticasFP {
                     }
                 }
                 editor.PerformLayout();
+                FitFields();
                 editor.AutoScrollPosition=new Point(0,offset);
             }
             finally {

@@ -37,6 +37,12 @@ jobs:
         shell: powershell
         run: ./Windows/Compilar.ps1
       - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: diagnostico-windows
+          path: dist/Windows/Windows-*.png
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
         with:
           name: instalador-windows
           path: |
