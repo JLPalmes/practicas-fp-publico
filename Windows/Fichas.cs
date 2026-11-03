@@ -116,15 +116,36 @@ namespace PracticasFP {
         }
         void DocumentFields(Dictionary<string,object> o,string kind,FlowLayoutPanel group) {
             var flow=Model.Flow(o,kind);
+            var previous=fields;
+            var grid=new FlowLayoutPanel {
+                Tag="document-grid",FlowDirection=FlowDirection.LeftToRight,WrapContents=true,
+                AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Width=FieldWidth,Margin=new Padding(0)
+            };
+            group.Controls.Add(grid);
+            int number=0;
             foreach(var m in Model.Items(flow,"milestones")) {
-                string stage=J.S(m,"id");
-                Check(m,"completed",Model.StageTitle(stage),value=> {
+                string stage=J.S(m,"id");number++;
+                var cell=new FlowLayoutPanel {
+                    Tag=kind+"|"+stage,FlowDirection=FlowDirection.TopDown,WrapContents=false,
+                    AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Width=145,Padding=new Padding(4),Margin=new Padding(2)
+                };
+                grid.Controls.Add(cell);fields=cell;
+                Check(m,"completed",number+". "+Model.StageTitle(stage),value=> {
                     DocumentChanged(o,kind,stage,value,value?(object)J.Stamp(J.Today):null);
                 },()=>RefreshDocumentGroup(o,kind,group));
-                if(J.B(m,"completed"))DateField(m,"date","Fecha (desmarca si desconocida)",true,value=> {
-                    DocumentChanged(o,kind,stage,true,value);
-                });
+                if(J.B(m,"completed")) {
+                    fields.Controls.Add(new Label {Text="Fecha (opcional)",AutoSize=true});
+                    var date=new DateTimePicker {
+                        Tag=FieldTag(m,"date"),Format=DateTimePickerFormat.Short,Width=130,ShowCheckBox=true,
+                        Value=J.Date(m,"date"),Checked=J.Get(m,"date")!=null
+                    };
+                    date.CloseUp+=(sender,e)=>SaveDate(m,"date",date,true,value=>DocumentChanged(o,kind,stage,true,value));
+                    date.Leave+=(sender,e)=>SaveDate(m,"date",date,true,value=>DocumentChanged(o,kind,stage,true,value));
+                    fields.Controls.Add(date);
+                }
+                else fields.Controls.Add(new Label {Text="Pendiente",AutoSize=true,ForeColor=Color.DimGray});
             }
+            fields=previous;
         }
         static string ResponseTitle(string v) {
             return v=="accepted"?"Admite alumnas":v=="rejected"?"Rechaza alumnas":v=="waiting"?"Esperando respuesta":"Contacto sin registrar";
@@ -205,6 +226,10 @@ namespace PracticasFP {
             TextField(o,"phone","Teléfono");
             TextField(o,"email","Email");
             TextField(o,"notes","Observaciones",true);
+            Title("Alumnas tutorizadas");
+            var students=WorkspaceRules.TutorStudents(store.Db,J.S(o,"id"));
+            if(students.Count==0)Note("Sin alumnas asignadas");
+            foreach(var student in students)Link("students",J.S(student,"id"),J.S(student,"name"));
         }
         void CalendarSettings() {
             Title("Calendario del curso");
@@ -215,7 +240,7 @@ namespace PracticasFP {
         }
         void Settings() {
             Title("Datos y copias · Windows");
-            Note("Versión 1.8.2-windows.2 · Edición de pruebas\nFormato de datos 4 · Compatible con copias de Mac 1 a 4.");
+            Note("Versión 1.8.4-windows.3 · Edición de pruebas\nFormato de datos 4 · Compatible con copias de Mac 1 a 4.");
             if(store.Blocked)Note(store.Error);
             else {
                 TextField(store.Db,"institute","Centro");

@@ -7,6 +7,28 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 namespace PracticasFP {
+    public sealed class TutorListButton: Button {
+        readonly string[] lines;
+        public TutorListButton(string[] value) {
+            lines=value;FlatStyle=FlatStyle.Flat;FlatAppearance.BorderSize=0;
+            AccessibleName=string.Join(" · ",lines);Text="";TextAlign=ContentAlignment.TopLeft;
+        }
+        public int HeightFor(int width) {
+            int height=12;
+            using(var bold=new Font(Font,FontStyle.Bold))for(int i=0;i<lines.Length;i++)
+                height+=TextRenderer.MeasureText(lines[i],i==0?bold:Font,new Size(Math.Max(80,width-16),int.MaxValue),TextFormatFlags.WordBreak).Height+2;
+            return Math.Max(40,height);
+        }
+        protected override void OnPaint(PaintEventArgs e) {
+            base.OnPaint(e);int y=6;
+            using(var bold=new Font(Font,FontStyle.Bold))for(int i=0;i<lines.Length;i++) {
+                var font=i==0?bold:Font;
+                int h=TextRenderer.MeasureText(lines[i],font,new Size(Math.Max(80,Width-16),int.MaxValue),TextFormatFlags.WordBreak).Height;
+                TextRenderer.DrawText(e.Graphics,lines[i],font,new Rectangle(8,y,Math.Max(80,Width-16),h),i==1?Color.DimGray:ForeColor,TextFormatFlags.WordBreak);
+                y+=h+2;
+            }
+        }
+    }
     // UI preferences are separate from student data, backups and undo history.
     public sealed class ViewPreferences {
         readonly string path;
@@ -23,7 +45,7 @@ namespace PracticasFP {
             return J.Get(values,"fold:"+key)==null||J.B(values,"fold:"+key);
         }
         public int Width(string section) {
-            return (int)J.N(values,"width:"+section,420);
+            return (int)J.N(values,"width:"+section,section=="tutors"?300:340);
         }
         public void SetOpen(string key,bool open) {
             values["fold:"+key]=open;
@@ -58,7 +80,7 @@ namespace PracticasFP {
         }
         int FieldWidth {
             get {
-                return Math.Max(240,editor.ClientSize.Width-44);
+                return Math.Max(200,editor.ClientSize.Width-content.Padding.Horizontal-8);
             }
         }
         string ViewKey {
@@ -74,6 +96,7 @@ namespace PracticasFP {
             string name=o==null?heading.Text:J.S(o,section=="exclusions"?"title":"name");
             pinned.Text=string.IsNullOrWhiteSpace(name)?"Ficha sin nombre":name;
             if(section=="students"&&o!=null)pinned.Text+=" · "+J.S(o,"assignment");
+            if(section=="tutors"&&o!=null)pinned.Text+=" · "+Model.Name(store.Db,"companies",J.S(o,"companyID"));
         }
         void ApplyWidth() {
             int maximum=Math.Max(split.Panel1MinSize,split.ClientSize.Width-split.Panel2MinSize-split.SplitterWidth);
@@ -84,20 +107,61 @@ namespace PracticasFP {
         void FitFields() {
             int width=FieldWidth;
             content.SuspendLayout();
-            content.Width=width+24;
-            foreach(Control child in content.Controls) {
-                var body=child as FlowLayoutPanel;
-                if(body!=null) {
-                    body.Width=width;
-                    foreach(Control control in body.Controls) {
-                        if(control is TextBox||control is ComboBox)control.Width=width;
-                        if(control is Label||control is CheckBox)control.MaximumSize=new Size(width,0);
-                    }
-                }
-                else if(child is Button)child.Width=width;
-                else child.MaximumSize=new Size(width,0);
-            }
+            content.Width=width+content.Padding.Horizontal+6;
+            foreach(Control child in content.Controls)FitControl(child,width);
             content.ResumeLayout(true);
+        }
+        void FitControl(Control control,int width) {
+            width=Math.Max(120,width-control.Margin.Horizontal);
+            var flow=control as FlowLayoutPanel;
+            if(flow!=null) {
+                flow.Width=width;
+                if((string)flow.Tag=="document-grid") {
+                    int columns=Math.Max(1,width/154);
+                    int stageWidth=Math.Max(130,width/columns-8);
+                    foreach(Control stage in flow.Controls)FitControl(stage,stageWidth+stage.Margin.Horizontal);
+                }
+                else foreach(Control child in flow.Controls)FitControl(child,width-flow.Padding.Horizontal);
+            }
+            else if(control is Button) {
+                control.AutoSize=false;control.Width=width;
+                control.Height=Math.Max(32,TextRenderer.MeasureText(control.Text,control.Font,new Size(Math.Max(60,width-12),int.MaxValue),TextFormatFlags.WordBreak).Height+8);
+            }
+            else if(control is TextBox||control is ComboBox)control.Width=width;
+            else if(control is Label||control is CheckBox)control.MaximumSize=new Size(width,0);
+        }
+        void FitListColumns() {
+            int width=Math.Max(100,list.ClientSize.Width-SystemInformation.VerticalScrollBarWidth-4);
+            list.Columns[0].Width=width*45/100;
+            list.Columns[1].Width=width-list.Columns[0].Width;
+        }
+        void FitTutorCards() {
+            int width=Math.Max(180,tutorCards.ClientSize.Width-tutorCards.Padding.Horizontal-8);
+            foreach(Control item in tutorCards.Controls) {
+                item.Width=width;
+                var card=item as TutorListButton;
+                if(card!=null)card.Height=card.HeightFor(width);
+            }
+        }
+        void RefreshTutorCards() {
+            int offset=Math.Max(0,-tutorCards.AutoScrollPosition.Y);
+            tutorCards.SuspendLayout();
+            foreach(Control item in tutorCards.Controls.Cast<Control>().ToArray())item.Dispose();
+            foreach(var tutor in Model.Items(store.Db,"tutors").Where(t=>WorkspaceRules.TutorMatches(store.Db,t,search.Text))) {
+                string id=J.S(tutor,"id");
+                var card=new TutorListButton(WorkspaceRules.TutorLines(store.Db,tutor)) {
+                    Name="tutor-card",Tag=id,Font=Font,Margin=new Padding(0,0,0,4),BackColor=id==selected?Color.FromArgb(209,229,226):Color.White
+                };
+                card.Click+=(s,e)=> {
+                    RememberView();selected=id;
+                    foreach(Control row in tutorCards.Controls)row.BackColor=(string)row.Tag==id?Color.FromArgb(209,229,226):Color.White;
+                    RenderEditor();
+                };
+                tutorCards.Controls.Add(card);
+            }
+            FitTutorCards();
+            tutorCards.ResumeLayout(true);
+            tutorCards.AutoScrollPosition=new Point(0,offset);
         }
         void RenderEditor() {
             // Defer disposal until the current click/Leave event has completed. A
@@ -166,12 +230,12 @@ namespace PracticasFP {
             titleCounts[text]=count+1;
             string key=section+"|"+text+"|"+count;
             var body=new FlowLayoutPanel {
-                Tag=key,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Width=FieldWidth,Margin=new Padding(0,0,0,8)
+                Tag=key,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Width=FieldWidth,Margin=new Padding(0,0,0,4)
             };
             bool open=preferences.Open(key);
             body.Visible=open;
             var toggle=new Button {
-                Text=(open?"▾  ":"▸  ")+text,Width=FieldWidth,Height=36,TextAlign=ContentAlignment.MiddleLeft,FlatStyle=FlatStyle.Flat,BackColor=Color.FromArgb(226,236,235),Font=new Font(Font,FontStyle.Bold),Margin=new Padding(0,12,0,3)
+                Name="section-toggle",AccessibleName=text,Text=(open?"▾  ":"▸  ")+text,Width=FieldWidth,Height=32,TextAlign=ContentAlignment.MiddleLeft,FlatStyle=FlatStyle.Flat,BackColor=Color.FromArgb(226,236,235),Font=new Font(Font,FontStyle.Bold),Margin=new Padding(0,6,0,3)
             };
             toggle.Click+=(s,e)=> {
                 RememberView();

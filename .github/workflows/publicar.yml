@@ -39,7 +39,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: instalador-windows
-          path: dist/Windows/Instalar-*.exe
+          path: |
+            dist/Windows/Instalar-*.exe
+            dist/Windows/Windows-*.png
   publicar:
     if: startsWith(github.ref, 'refs/tags/')
     needs: [mac, windows]
@@ -59,4 +61,4 @@ jobs:
         run: |
           cp LICENSE AVISO-LICENCIA.txt distribucion/
           (cd distribucion && sha256sum *.dmg *.exe LICENSE AVISO-LICENCIA.txt > SHA256SUMS.txt)
-          gh release create "$GITHUB_REF_NAME" distribucion/* --verify-tag --title 'Prácticas FP · Mac 1.8.4 y Windows 1.8.2-windows.2' --notes-file NOTAS-PUBLICACION.md
+          gh release create "$GITHUB_REF_NAME" distribucion/* --verify-tag --title 'Prácticas FP · Mac 1.8.4 y Windows 1.8.4-windows.3' --notes-file NOTAS-PUBLICACION.md

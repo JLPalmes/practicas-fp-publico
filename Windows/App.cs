@@ -41,6 +41,7 @@ namespace PracticasFP {
         readonly Store store;
         readonly SplitContainer split=new SplitContainer();
         readonly ListView list=new ListView();
+        readonly FlowLayoutPanel tutorCards=new FlowLayoutPanel();
         readonly Panel editor=new Panel();
         FlowLayoutPanel fields;
         readonly TextBox search=new TextBox();
@@ -54,8 +55,8 @@ namespace PracticasFP {
             store=value;
             fields=content;
             preferences=new ViewPreferences(store.Folder);
-            Text="Prácticas FP · Windows · 1.8.2-windows.2 (pruebas)";
-            MinimumSize=new Size(950,650);
+            Text="Prácticas FP · Windows · 1.8.4-windows.3 (pruebas)";
+            MinimumSize=new Size(900,620);
             Size=new Size(1280,850);
             StartPosition=FormStartPosition.CenterScreen;
             Font=new Font("Segoe UI",10);
@@ -74,21 +75,21 @@ namespace PracticasFP {
             i++) {
                 string key=keys[i];
                 var b=new Button {
-                    Text=labels[i],Width=150,Height=44,FlatStyle=FlatStyle.Flat,ForeColor=Color.White,BackColor=Color.FromArgb(22,65,66),TextAlign=ContentAlignment.MiddleLeft
+                    Text=labels[i],Width=150,Height=36,FlatStyle=FlatStyle.Flat,ForeColor=Color.White,BackColor=Color.FromArgb(22,65,66),TextAlign=ContentAlignment.MiddleLeft
                 };
                 b.Click+=(s,e)=>Navigate(key);
                 nav.Controls.Add(b);
             }
             nav.Controls.Add(new Label {
-                Text="1.8.2 · Windows\nVersión de pruebas",ForeColor=Color.White,AutoSize=true,Margin=new Padding(4,28,0,0)
+                Text="1.8.4 · Windows\nVersión de pruebas",ForeColor=Color.White,AutoSize=true,Margin=new Padding(4,28,0,0)
             });
             var area=new Panel {
-                Dock=DockStyle.Fill,Padding=new Padding(14)
+                Dock=DockStyle.Fill,Padding=new Padding(8)
             };
             Controls.Add(area);
             area.BringToFront();
             var top=new FlowLayoutPanel {
-                Dock=DockStyle.Top,Height=100,FlowDirection=FlowDirection.LeftToRight,WrapContents=true
+                Dock=DockStyle.Top,Height=86,FlowDirection=FlowDirection.LeftToRight,WrapContents=true
             };
             heading.Font=new Font(Font,FontStyle.Bold);
             heading.Size=new Size(250,30);
@@ -121,8 +122,8 @@ namespace PracticasFP {
             split.Size=new Size(1000,600);
             split.Dock=DockStyle.Fill;
             split.FixedPanel=FixedPanel.None;
-            split.Panel1MinSize=230;
-            split.Panel2MinSize=350;
+            split.Panel1MinSize=250;
+            split.Panel2MinSize=320;
             split.SplitterWidth=7;
             area.Controls.Add(split);
             area.Controls.Add(top);
@@ -141,12 +142,21 @@ namespace PracticasFP {
                 RenderEditor();
             };
             split.Panel1.Controls.Add(list);
+            list.Resize+=(s,e)=>FitListColumns();
+            tutorCards.Dock=DockStyle.Fill;
+            tutorCards.FlowDirection=FlowDirection.TopDown;
+            tutorCards.WrapContents=false;
+            tutorCards.AutoScroll=true;
+            tutorCards.Padding=new Padding(4);
+            tutorCards.Visible=false;
+            tutorCards.Resize+=(s,e)=>FitTutorCards();
+            split.Panel1.Controls.Add(tutorCards);
             editor.Dock=DockStyle.Fill;
             editor.AutoScroll=true;
             split.Panel2.Controls.Add(editor);
             pinned.Dock=DockStyle.Top;
-            pinned.Height=48;
-            pinned.Padding=new Padding(10);
+            pinned.Height=40;
+            pinned.Padding=new Padding(6);
             pinned.Font=new Font(Font,FontStyle.Bold);
             pinned.BackColor=Color.FromArgb(226,236,235);
             split.Panel2.Controls.Add(pinned);
@@ -154,7 +164,7 @@ namespace PracticasFP {
             content.WrapContents=false;
             content.AutoSize=true;
             content.AutoSizeMode=AutoSizeMode.GrowAndShrink;
-            content.Padding=new Padding(10);
+            content.Padding=new Padding(6);
             editor.Controls.Add(content);
             editor.Resize+=(s,e)=> {
                 if(!building)FitFields();
@@ -233,6 +243,8 @@ namespace PracticasFP {
             });
             filter.SelectedIndex=Math.Max(0,Math.Min(savedFilter,filter.Items.Count-1));
             rendering=false;
+            if(new[]{"students","companies","tutors"}.Contains(section))
+                selected=WorkspaceRules.Selection(Model.Items(store.Db,section).Select(x=>J.S(x,"id")),selected);
             RefreshList();
             RenderEditor();
             status.Text=store.Blocked?"Archivo protegido · revisa Ajustes y copias":"Guardado en este equipo · "+J.S(store.Db,"course");
@@ -258,6 +270,18 @@ namespace PracticasFP {
         }
         void RefreshList() {
             rendering=true;
+            string previous=selected;
+            if(new[]{"students","companies","tutors"}.Contains(section))
+                selected=WorkspaceRules.Selection(Model.Items(store.Db,section).Select(x=>J.S(x,"id")),selected);
+            tutorCards.Visible=section=="tutors";
+            list.Visible=section!="tutors";
+            if(section=="tutors") {
+                RefreshTutorCards();
+                rendering=false;
+                UpdatePinned();
+                if(previous!=selected)RenderEditor();
+                return;
+            }
             int top=list.TopItem==null?0:list.TopItem.Index;
             list.BeginUpdate();
             list.Items.Clear();
@@ -287,12 +311,14 @@ namespace PracticasFP {
                 if((string)item.Tag==selected)item.Selected=true;
             }
             list.EndUpdate();
+            FitListColumns();
             int savedTop;
             if(restoreListPosition&&listPositions.TryGetValue(section,out savedTop))top=savedTop;
             restoreListPosition=false;
             if(list.Items.Count>0)list.TopItem=list.Items[Math.Min(top,list.Items.Count-1)];
             rendering=false;
             UpdatePinned();
+            if(previous!=selected)RenderEditor();
         }
         void ClearEditor() {
             fields=content;
@@ -326,7 +352,7 @@ namespace PracticasFP {
                 Text=title,AutoSize=true,Margin=new Padding(0,7,0,2)
             });
             var row=new FlowLayoutPanel {
-                AutoSize=true,WrapContents=false
+                AutoSize=true,WrapContents=true,Width=FieldWidth,Margin=new Padding(0,3,0,3)
             };
             var n=new NumericUpDown {
                 Minimum=min,Maximum=max,Tag=FieldTag(obj,key),DecimalPlaces=decimals,Increment=decimals>0?0.5m:1m,Width=130
@@ -383,10 +409,10 @@ namespace PracticasFP {
         }
         void DateField(Dictionary<string,object> obj,string key,string title,bool optional=false,Action<object> custom=null) {
             var row=new FlowLayoutPanel {
-                AutoSize=true,WrapContents=false
+                AutoSize=true,WrapContents=true,Width=FieldWidth,Margin=new Padding(0,3,0,3)
             };
             row.Controls.Add(new Label {
-                Text=title,Width=210,Height=28,TextAlign=ContentAlignment.MiddleLeft
+                Text=title,AutoSize=true,MaximumSize=new Size(Math.Max(100,FieldWidth-165),0),TextAlign=ContentAlignment.MiddleLeft
             });
             var date=new DateTimePicker {
                 Tag=FieldTag(obj,key),Format=DateTimePickerFormat.Short,Width=145,ShowCheckBox=optional
@@ -455,7 +481,10 @@ namespace PracticasFP {
             else {
                 var o=Current();
                 if(section=="exclusions")CalendarSettings();
-                if(o==null)Note("Selecciona una ficha o pulsa Añadir.");
+                if(o==null) {
+                    Note(section=="tutors"?"Añade un tutor. Su ficha aparecerá aquí, junto al listado.":section=="companies"?"Añade una empresa. Su ficha aparecerá aquí, junto al listado.":"Añade una alumna. Su ficha aparecerá aquí, junto al listado.");
+                    AddButton(fields,section=="tutors"?"Añadir tutor":section=="companies"?"Añadir empresa":"Añadir alumna",Add);
+                }
                 else {
                     if(section=="students")Student(o);
                     if(section=="companies")Company(o);

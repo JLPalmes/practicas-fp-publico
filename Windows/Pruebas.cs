@@ -226,6 +226,23 @@ class Tests {
             Reject(()=>cacheStore.Change(()=>cacheStore.Db["institute"]=123),"Se revierte una edición inválida");
             Assert(J.Get(cacheStore.Db,"institute") is string,"La reversión conserva el tipo original");
             UpdateTests(folder);
+            var firstID=J.Id();var nextID=J.Id();
+            Assert(WorkspaceRules.Selection(new[]{firstID,nextID},"")==firstID,"Abre la primera ficha disponible");
+            Assert(WorkspaceRules.Selection(new[]{firstID,nextID},nextID)==nextID,"Conserva la ficha seleccionada al volver");
+            Assert(WorkspaceRules.Selection(new[]{nextID},firstID)==nextID,"Eliminar la ficha abierta selecciona otra");
+            Assert(WorkspaceRules.Selection(new string[0],firstID)=="","Listado vacío no conserva una selección obsoleta");
+            var tutorDb=Model.Empty();var tutor=Model.Tutor();tutor["name"]="Tutora ficticia";
+            var company=Model.Company();company["name"]="Empresa del tutor";tutor["companyID"]=J.S(company,"id");
+            J.EditArray(tutorDb,"companies").Add(company);J.EditArray(tutorDb,"tutors").Add(tutor);
+            var initial=Student(tutorDb);initial["name"]="Alumna inicial";initial["tutorID"]=J.S(tutor,"id");
+            var laterStudent=Student(tutorDb);laterStudent["name"]="Alumna posterior";
+            J.EditArray(laterStudent,"shifts").Add(J.Obj("id",J.Id(),"tutorID",J.S(tutor,"id")));
+            J.EditArray(laterStudent,"shifts").Add(J.Obj("id",J.Id(),"tutorID",J.S(tutor,"id")));
+            Assert(WorkspaceRules.TutorStudents(tutorDb,J.S(tutor,"id")).Count==2,"Tutor incluye periodos posteriores sin duplicar alumnas");
+            var lines=WorkspaceRules.TutorLines(tutorDb,tutor);
+            Assert(lines.SequenceEqual(new[]{"Tutora ficticia","Empresa del tutor","Alumna inicial","Alumna posterior"}),"Lista de tutores ordena nombre, empresa y alumnas");
+            Assert(WorkspaceRules.TutorMatches(tutorDb,tutor,"empresa del tutor")&&WorkspaceRules.TutorMatches(tutorDb,tutor,"posterior"),"Búsqueda de tutores admite empresa y alumna");
+            Assert(WorkspaceRules.TutorLines(tutorDb,Model.Tutor()).Skip(1).SequenceEqual(new[]{"Sin empresa","Sin alumnas asignadas"}),"Tutor sin vínculos muestra estados explícitos");
             Console.WriteLine("SUPERADAS: "+count+" comprobaciones.");
             return 0;
         }

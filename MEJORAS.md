@@ -71,3 +71,11 @@ La aplicación se desarrolla y compila exclusivamente para Apple Silicon (arm64)
 - Tutores utiliza el mismo espacio permanente de listado y ficha, con divisoria y ancho propios, selección automática y opción de añadir cuando está vacío.
 - Validación: 143 comprobaciones y compilación arm64 superadas. Vistas reales renderizadas con datos ficticios a 900 y 1250 puntos, y estado vacío comprobado.
 - Incluido en el instalador Mac 1.8.4 solicitado por el usuario. Windows no cambia.
+
+## Windows 1.8.4-windows.3
+
+- Fichas permanentes, selección inicial automática, recuperación por sección y alta desde la columna vacía.
+- Tutores en filas con empresa y alumnas de todos sus periodos, sin duplicados; búsqueda por cualquiera de esos datos y enlaces en la ficha.
+- Márgenes y anchos mínimos menores, columnas de listado ajustables al espacio y hitos en filas numeradas. Cabeceras completas pulsables y adaptadas al título.
+- Informe de ficha o curso completo explícitos.
+- Pruebas funcionales y pruebas de formularios reales en Windows mediante GitHub, con datos ficticios y vistas previas. La comprobación manual en el equipo del usuario queda pendiente.

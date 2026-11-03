@@ -1,10 +1,10 @@
 # Prácticas FP para Windows · edición de pruebas
 
-Adaptación nativa de la versión de Mac 1.8.2. Identificador: **1.8.2-windows.2**.
+Adaptación nativa de la versión de Mac 1.8.4. Identificador: **1.8.4-windows.3**.
 
 ## Instalar y probar
 
-1. Ejecuta `dist\Windows\Instalar-PracticasFP-1.8.2-windows.2-x64.exe`.
+1. Ejecuta `dist\Windows\Instalar-PracticasFP-1.8.4-windows.3-x64.exe`.
 2. Pulsa **Instalar**. No requiere permisos de administrador y no abre la aplicación automáticamente.
 3. Abre **Prácticas FP** desde el escritorio o el menú Inicio.
 4. Prueba primero con fichas ficticias. Para usar una copia de Mac, ve a **Ajustes y copias → Restaurar copia de Windows o Mac…**. Antes de sustituir datos se muestra un resumen y se conserva una copia previa.
@@ -70,4 +70,27 @@ Usa el compilador de .NET Framework incluido en Windows. Compila la aplicación,
 
 Los instaladores se nombran `Instalar-PracticasFP-<versión>-x64.exe`. La versión se obtiene automáticamente de la aplicación recién compilada y se comprueba que coincida con la del instalador. Así, cada versión conserva un nombre distinto al descargarla o compartirla.
 
-Resultados en `dist\Windows\`. `Pruebas.exe` ejecuta 65 comprobaciones del cálculo, datos, migraciones, documentos, copias, importación, contactos, consultas sin efectos secundarios, historial incremental, reutilización de cálculos y recuperación de actualizaciones. La interfaz se comprobó abriendo la aplicación compilada con una carpeta de datos ficticios independiente mediante `--data-directory`.
+Resultados en `dist\Windows\`. `Pruebas.exe` ejecuta 73 comprobaciones del cálculo, datos, migraciones, documentos, copias, importación, contactos, consultas sin efectos secundarios, historial incremental, reutilización de cálculos y recuperación de actualizaciones. La interfaz se comprobó abriendo la aplicación compilada con una carpeta de datos ficticios independiente mediante `--data-directory`.
+
+## Mejoras 1.8.4-windows.3
+
+Alumnas, Empresas y Tutores mantienen siempre el listado y la ficha. Al entrar
+se recupera la selección de esa sección durante la sesión o se abre la primera
+ficha disponible. Al borrar la seleccionada se abre otra; si no quedan fichas,
+la columna derecha permite añadir. La búsqueda conserva la ficha abierta.
+
+La lista de tutores muestra el nombre, debajo su empresa y después las alumnas
+asignadas, incluidas las de periodos posteriores, sin repeticiones. Permite
+buscar por tutor, empresa o alumna. Su ficha incluye enlaces a esas alumnas.
+
+Se reducen los márgenes y anchos mínimos. Las columnas del listado se ajustan
+al espacio disponible y los hitos documentales se distribuyen en filas
+numeradas sin desplazamiento horizontal. Toda la cabecera de los apartados es
+pulsable, con un mínimo de 32 puntos y altura adaptable a títulos largos.
+Informe permite elegir la ficha seleccionada o el curso completo.
+
+Además de las 73 comprobaciones funcionales, la compilación ejecuta pruebas
+sobre formularios reales con datos ficticios: selección inicial y conservada,
+listados vacíos, borrado, alta, búsqueda de tutores, plegado, hitos y ausencia
+de barra horizontal en fichas estrechas. Genera vistas previas de Windows para
+revisión. Sigue pendiente la comprobación manual en el equipo del usuario.

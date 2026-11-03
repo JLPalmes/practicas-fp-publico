@@ -13,8 +13,12 @@ using System.Diagnostics;
 namespace PracticasFP {
     public partial class MainForm {
         void Report() {
-            var o=Current();
-            ShowReport(Model.Report(store.Db,section=="students"||section=="companies"?o:null,section));
+            var menu=new ContextMenuStrip();
+            if((section=="students"||section=="companies")&&Current()!=null)
+                menu.Items.Add("Informe de la ficha seleccionada",null,(s,e)=>ShowReport(Model.Report(store.Db,Current(),section)));
+            menu.Items.Add("Informe del curso completo",null,(s,e)=>ShowReport(Model.Report(store.Db,null,section)));
+            menu.Closed+=(s,e)=>BeginInvoke(new Action(()=>menu.Dispose()));
+            menu.Show(Cursor.Position);
         }
         void ShowReport(string report) {
             using(var f=new Form {
