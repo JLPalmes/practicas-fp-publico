@@ -1,0 +1,64 @@
+name: Publicar actualización de Windows
+on:
+  push:
+    tags: ['windows-v*']
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar y probar Windows
+        shell: powershell
+        run: ./Windows/Compilar.ps1
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: diagnostico-windows
+          path: dist/Windows/Windows-*.png
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instalador-windows
+          path: |
+            dist/Windows/Instalar-*.exe
+            dist/Windows/Windows-*.png
+  publicar:
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: instalador-windows
+          path: distribucion
+      - name: Recuperar Mac solo si su código permanece idéntico
+        env:
+          MAC_RELEASE: v1.8.4-publica.1
+          MAC_INSTALLER: PracticasFP-1.8.4-AppleSilicon-Instalador.dmg
+        run: |
+          git diff --exit-code "$MAC_RELEASE" HEAD -- Fuentes Recursos Compilar.command Validar.command LICENSE AVISO-LICENCIA.txt
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$MAC_RELEASE"
+          curl -fsSL "$base/$MAC_INSTALLER" -o "distribucion/$MAC_INSTALLER"
+          curl -fsSL "$base/SHA256SUMS.txt" -o /tmp/mac-checksums.txt
+          (cd distribucion && grep "  $MAC_INSTALLER$" /tmp/mac-checksums.txt | sha256sum --check --strict)
+      - name: Retirar el intento anterior que esperaba otro equipo Mac
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          previous=$(git rev-parse HEAD^)
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=30" --jq ".workflow_runs[] | select(.head_sha == \"$previous\" and .path == \".github/workflows/publicar.yml\" and .status != \"completed\") | .id" |
+          while read -r run; do gh run cancel "$run" --repo "$GITHUB_REPOSITORY" || true; done
+      - name: Publicar instaladores comprobados
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp LICENSE AVISO-LICENCIA.txt distribucion/
+          (cd distribucion && sha256sum *.dmg *.exe LICENSE AVISO-LICENCIA.txt > SHA256SUMS.txt)
+          gh release create "$GITHUB_REF_NAME" distribucion/* --verify-tag --title 'Prácticas FP · Mac 1.8.4 y Windows 1.8.4-windows.3' --notes-file NOTAS-PUBLICACION.md

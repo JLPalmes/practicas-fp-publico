@@ -94,3 +94,7 @@ sobre formularios reales con datos ficticios: selección inicial y conservada,
 listados vacíos, borrado, alta, búsqueda de tutores, plegado, hitos y ausencia
 de barra horizontal en fichas estrechas. Genera vistas previas de Windows para
 revisión. Sigue pendiente la comprobación manual en el equipo del usuario.
+
+La publicación de una actualización exclusiva de Windows reutiliza el instalador
+Mac existente únicamente si las fuentes de Mac y su procedimiento de compilación
+permanecen idénticos a los de aquella versión y se verifica su suma SHA-256.

@@ -3,8 +3,9 @@ Prácticas FP se distribuye como software libre bajo GNU AGPLv3 exclusivamente.
 - **Mac 1.8.4:** Apple Silicon, macOS 14 o posterior. Abre el DMG y arrastra la aplicación a Aplicaciones. Firma local, sin notarización.
 - **Windows 1.8.4-windows.3:** edición de pruebas para Windows 10/11 de 64 bits. Ejecuta el instalador. .NET Framework 4.8 recomendado. Sin certificado de firma digital.
 
-Los dos instaladores se compilan desde el código de esta etiqueta y se publican
-solo tras superar las pruebas automatizadas. Se adjuntan la licencia, el aviso y
+Windows se compila desde esta etiqueta y se publica tras superar las pruebas
+funcionales y de interfaz. Mac reutiliza su instalador 1.8.4 verificado, tras
+comprobar que sus fuentes permanecen idénticas y verificar su suma SHA-256. Se adjuntan la licencia, el aviso y
 SHA256SUMS.txt. El código fuente correspondiente está disponible en los archivos
 Source code de esta publicación, incluidos los procedimientos de compilación.
 
