@@ -10,14 +10,14 @@ struct CompanyResponseEditor: View {
         if let index = store.db.companies.firstIndex(where: { $0.id == companyID }) {
             if showState {
             Picker("Estado", selection: Binding(
-                get: { store.db.companies[index].response ?? .uncontacted },
+                get: { store.db.companies.first(where: { $0.id == companyID })?.response ?? .uncontacted },
                 set: { store.setResponse($0, for: companyID) })) {
                     ForEach(CompanyResponse.allCases) { Text($0.title).tag($0) }
                 }
             }
-            OptionalDateEditor(title: "Fecha del contacto", date: Binding(get: { store.db.companies[index].contactedOn }, set: { store.db.companies[index].contactedOn = $0 }))
+            OptionalDateEditor(title: "Fecha del contacto", date: Binding(get: { store.db.companies.first(where: { $0.id == companyID })?.contactedOn }, set: { value in if let i = store.db.companies.firstIndex(where: { $0.id == companyID }) { store.db.companies[i].contactedOn = value } }))
             if [.accepted, .rejected].contains(store.db.companies[index].response) {
-                OptionalDateEditor(title: "Fecha de respuesta", date: Binding(get: { store.db.companies[index].respondedOn }, set: { store.db.companies[index].respondedOn = $0 }))
+                OptionalDateEditor(title: "Fecha de respuesta", date: Binding(get: { store.db.companies.first(where: { $0.id == companyID })?.respondedOn }, set: { value in if let i = store.db.companies.firstIndex(where: { $0.id == companyID }) { store.db.companies[i].respondedOn = value } }))
             }
         }
     }
@@ -112,7 +112,7 @@ struct CompaniesDashboard: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 130))], alignment: .leading, spacing: 10) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 10) {
                     stat("Esperando respuesta", count: store.db.companies.filter { $0.response == .waiting }.count)
                     stat("Admiten", count: store.db.companies.filter { $0.response == .accepted }.count)
                     stat("Rechazan", count: store.db.companies.filter { $0.response == .rejected }.count)
@@ -120,10 +120,10 @@ struct CompaniesDashboard: View {
                 }
                 VStack(alignment: .leading) {
                     TextField("Buscar empresa", text: $search).textFieldStyle(.roundedBorder)
-                    Picker("Mostrar", selection: $filter) { ForEach(CompanyPanelFilter.allCases) { Text($0.rawValue).tag($0) } }.frame(width: 300)
+                    Picker("Mostrar", selection: $filter) { ForEach(CompanyPanelFilter.allCases) { Text($0.rawValue).tag($0) } }.frame(maxWidth: .infinity)
                 }
                 if store.db.companies.isEmpty {
-                    ContentUnavailableView("Añade tus empresas", systemImage: "building.2", description: Text("Pulsa Añadir. Aquí podrás consultar sus respuestas, plazas y contactos y editar su ficha."))
+                    Text("Todavía no hay empresas. Añade la primera desde la columna de ficha.").foregroundStyle(.secondary)
                 } else if !store.db.companies.contains(where: matches) {
                     Text("No hay empresas que coincidan con el filtro.").foregroundStyle(.secondary)
                 }
@@ -134,12 +134,12 @@ struct CompaniesDashboard: View {
                             .id(company.id)
                     }
                 }.scrollTargetLayout()
-            }.padding(14).background(ScrollMemory(read: { navigation.scrollOffsets["Empresas"] ?? 0 }, write: { navigation.scrollOffsets["Empresas"] = $0 }))
+            }.padding(10).background(ScrollMemory(read: { navigation.scrollOffsets["Empresas"] ?? 0 }, write: { navigation.scrollOffsets["Empresas"] = $0 }))
         }
     }
     func stat(_ title: String, count: Int) -> some View {
         VStack(alignment: .leading, spacing: 8) { Text(title).font(.caption).foregroundStyle(.secondary); Text("\(count)").font(.title.bold()) }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(14).background(.background).clipShape(RoundedRectangle(cornerRadius: 10))
+            .frame(maxWidth: .infinity, alignment: .leading).padding(10).background(.background).clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -165,10 +165,10 @@ struct CompanyPanelCard: View {
                             .accessibilityLabel("Abrir ficha de " + (company.name.isEmpty ? "empresa sin nombre" : company.name))
                         HStack(spacing: 8) {
                             Picker("Estado de contacto", selection: Binding(
-                                get: { store.db.companies[i].response ?? .uncontacted },
+                                get: { store.db.companies.first(where: { $0.id == companyID })?.response ?? .uncontacted },
                                 set: { store.setResponse($0, for: companyID) })) {
                                 ForEach(CompanyResponse.allCases) { Text($0.title).tag($0) }
-                            }.labelsHidden().frame(width: 220)
+                            }.labelsHidden().frame(maxWidth: .infinity)
                             Button { showDates.toggle() } label: { Image(systemName: "calendar") }
                                 .buttonStyle(.borderless).help("Consultar o editar fechas de contacto y respuesta")
                                 .accessibilityLabel("Fechas de contacto y respuesta")
@@ -227,7 +227,7 @@ struct CompanyPanelCard: View {
                     }
                     DisclosureGroup("Trámites · concierto \(company.document.completedCount)/\(company.document.milestones.count) · tutores y anexos") {
                     Text("Concierto de colaboración · \(company.document.completedCount)/\(company.document.milestones.count)").font(.headline)
-                    DocumentTimeline(flow: Binding(get: { store.db.companies[i].document }, set: { store.setCompanyDocument($0, companyID: companyID) }))
+                    DocumentTimeline(flow: Binding(get: { store.db.companies.first(where: { $0.id == companyID })?.document ?? company.document }, set: { store.setCompanyDocument($0, companyID: companyID) }))
                     Divider()
                     Text("Alumnas con asignación definitiva").font(.headline)
                     ForEach(students) { student in

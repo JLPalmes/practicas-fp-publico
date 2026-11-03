@@ -15,8 +15,8 @@ cat > PracticasFP.app/Contents/Info.plist <<'PLIST'
 <key>CFBundleIdentifier</key><string>es.practicasfp.mac</string>
 <key>CFBundleName</key><string>Prácticas FP</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.8.2</string>
-<key>CFBundleVersion</key><string>182</string>
+<key>CFBundleShortVersionString</key><string>1.8.4</string>
+<key>CFBundleVersion</key><string>184</string>
 <key>CFBundleIconFile</key><string>PracticasFP.icns</string>
 <key>CFBundleDevelopmentRegion</key><string>es</string>
 <key>CFBundleLocalizations</key><array><string>es</string></array>

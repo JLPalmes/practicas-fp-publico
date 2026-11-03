@@ -20,6 +20,10 @@ extension String { var nonEmpty: String? { isEmpty ? nil : self } }
         set { searches[page] = newValue }
     }
     func switchSection(_ section: String) { page = section }
+    func ensureSelection(in ids: [UUID]) {
+        guard !ids.contains(where: { $0 == selected }) else { return }
+        selected = ids.first
+    }
     func open(_ section: String, id: UUID) {
         page = section; selected = id
     }
@@ -37,6 +41,9 @@ struct PendingTask: Identifiable {
     var forClosing = false
 }
 extension Database {
+    func students(tutoredBy tutorID: UUID) -> [Student] {
+        students.filter { $0.tutorID == tutorID || $0.shifts.contains(where: { $0.tutorID == tutorID }) }
+    }
     func pendingTasks(today: Date = Date()) -> [PendingTask] {
         var tasks: [PendingTask] = []
         for student in students {

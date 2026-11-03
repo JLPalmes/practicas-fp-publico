@@ -1,6 +1,6 @@
 Prácticas FP se distribuye como software libre bajo GNU AGPLv3 exclusivamente.
 
-- **Mac 1.8.2:** Apple Silicon, macOS 14 o posterior. Abre el DMG y arrastra la aplicación a Aplicaciones. Firma local, sin notarización.
+- **Mac 1.8.4:** Apple Silicon, macOS 14 o posterior. Abre el DMG y arrastra la aplicación a Aplicaciones. Firma local, sin notarización.
 - **Windows 1.8.2-windows.2:** edición de pruebas para Windows 10/11 de 64 bits. Ejecuta el instalador. .NET Framework 4.8 recomendado. Sin certificado de firma digital.
 
 Los dos instaladores se compilan desde el código de esta etiqueta y se publican
@@ -12,3 +12,7 @@ Los datos permanecen en cada equipo. Conserva una copia antes de actualizar o
 trasladar datos entre sistemas. No existe sincronización ni fusión automática;
 el intercambio completo de ida y vuelta entre Mac y Windows sigue pendiente de
 verificación. Revisa las guías del repositorio antes de usar datos reales.
+
+Mac 1.8.3 reduce márgenes y anchos mínimos, adapta los hitos en filas numeradas y permite desplegar las secciones pulsando toda su cabecera.
+
+Mac 1.8.4 mantiene la ficha siempre junto al panel en Alumnas, Empresas y Tutores. La lista de tutores muestra sus empresas y alumnas, incluidas las de periodos posteriores sin duplicados. El menú Informe conserva una opción explícita de curso completo.

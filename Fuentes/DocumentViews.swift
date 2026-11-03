@@ -23,13 +23,10 @@ struct DocumentTimeline: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack { Text(flow.kind.title).font(.headline); Spacer(); Text("\(flow.completedCount)/\(flow.milestones.count)").foregroundStyle(.secondary) }
-            ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: 0) {
-                    ForEach(Array(flow.kind.stages.enumerated()), id: \.element.0) { index, stage in
-                        milestoneButton(stage.0, title: stage.1)
-                        if index < flow.kind.stages.count - 1 { Rectangle().fill(accent.opacity(0.3)).frame(width: 24, height: 2).padding(.top, 18) }
-                    }
-                }.padding(.horizontal, 4)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), alignment: .top)], alignment: .leading, spacing: 8) {
+                ForEach(Array(flow.kind.stages.enumerated()), id: \.element.0) { index, stage in
+                    milestoneButton(stage.0, title: "\(index + 1). " + stage.1)
+                }
             }
             Text("Siguiente hito pendiente: " + flow.nextTitle).font(.caption).foregroundStyle(.secondary)
         }.padding(10).background(accent.opacity(0.035)).clipShape(RoundedRectangle(cornerRadius: 10))
@@ -42,11 +39,11 @@ struct DocumentTimeline: View {
     private func milestoneButton(_ id: String, title: String) -> some View {
         let item = flow.milestones.first { $0.id == id }!
         return Button { selected = id } label: {
-            VStack(spacing: 6) {
+            VStack(spacing: 4) {
                 Image(systemName: item.completed ? "checkmark.circle.fill" : "circle").font(.title2).foregroundStyle(item.completed ? accent : Color.secondary)
-                Text(title).font(.caption).multilineTextAlignment(.center).frame(width: 108).frame(minHeight: 30)
-                Text(item.completed ? item.date.map(dateText) ?? "Fecha sin registrar" : "Pendiente").font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(width: 108)
-            }.padding(.vertical, 6)
+                Text(title).font(.caption).multilineTextAlignment(.center).frame(maxWidth: .infinity).fixedSize(horizontal: false, vertical: true)
+                Text(item.completed ? item.date.map(dateText) ?? "Fecha sin registrar" : "Pendiente").font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity).fixedSize(horizontal: false, vertical: true)
+            }.padding(.vertical, 4)
         }.buttonStyle(.plain).accessibilityLabel(flow.kind.title + " · " + title)
             .accessibilityValue(item.completed ? "Hecho" : "Pendiente")
             .popover(isPresented: milestonePresentation(id)) {
@@ -138,7 +135,7 @@ struct PracticePeriodsEditor: View {
                     }
                 }
                 StudentDocuments(studentID: s.id, periodID: period.shiftID)
-            }.padding(12).background(accent.opacity(0.04)).clipShape(RoundedRectangle(cornerRadius: 12))
+            }.padding(8).background(accent.opacity(0.04)).clipShape(RoundedRectangle(cornerRadius: 12))
         }
         Menu("Añadir periodo o cambio de jornada") {
             Button("Cambio de jornada en la misma empresa") { appendShift(companyID: nil) }

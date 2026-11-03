@@ -1,6 +1,6 @@
 # Prácticas FP
 
-Edición de Mac: aplicación nativa para Apple Silicon (arm64), macOS 14 o posterior. Versión 1.8.2.
+Edición de Mac: aplicación nativa para Apple Silicon (arm64), macOS 14 o posterior. Versión 1.8.4.
 Abre **PracticasFP.app** con doble clic. Puedes moverla a la carpeta Aplicaciones; los datos se conservan por separado.
 
 Hay una primera adaptación nativa **para Windows 10/11 de 64 bits**, con instalador y formato de datos compatible. Consulta [Windows/LEEME.md](Windows/LEEME.md) para instalarla, trasladar copias y conocer las diferencias de esta edición de pruebas. La aplicación descrita a continuación es la edición de Mac.
@@ -118,7 +118,7 @@ Versión 1.5.2: los conciertos se muestran exclusivamente en las empresas. No ap
 
 ## Espacio unificado de alumnas y empresas
 
-El lateral reúne cada panel y sus fichas en una sola sección: **Alumnas** y **Empresas**. Pulsa una tarjeta de alumna o el nombre o resumen de una empresa para abrir su ficha junto al panel. La divisoria permite ajustar el espacio; «Cerrar ficha» devuelve todo el ancho al resumen. Los filtros permanecen al abrir y cerrar una ficha. Añadir e importar están disponibles en la cabecera correspondiente.
+El lateral reúne cada panel y sus fichas en una sola sección: **Alumnas** y **Empresas**. Pulsa una tarjeta de alumna o el nombre o resumen de una empresa para abrir su ficha junto al panel. La ficha permanece siempre a la derecha y la divisoria permite ajustar el espacio. Al entrar se recupera la última selección de esa sección durante la sesión, o se abre la primera ficha disponible. Si no hay registros, la columna derecha permite añadirlos. Los filtros se mantienen al cambiar de ficha. Añadir e importar están disponibles en la cabecera correspondiente.
 
 Las mejoras previstas se recogen en MEJORAS.md.
 
@@ -171,3 +171,29 @@ Las empresas abren su ficha pulsando el nombre o el resumen de plazas, sin un bo
 ## Cierre y versión 1.8.2
 
 La versión de la copia abierta se muestra al pie del lateral. En Ajustes y copias aparecen la versión y su número de compilación. Cerrar la última ventana con el botón rojo termina también la aplicación.
+
+## Ajustes de espacio en Mac · 1.8.3
+
+Las fichas de alumnas y empresas permiten reducir más su ancho. El lateral, las
+cabeceras y los formularios usan márgenes menores; los filtros se adaptan al
+espacio disponible. Los hitos se leen en filas numeradas de izquierda a derecha
+y de arriba abajo, sin barra de desplazamiento horizontal. Pulsa un hito para
+editarlo como antes. La divisoria sigue permitiendo repartir el espacio entre
+panel y ficha.
+
+Para desplegar o plegar un apartado puedes pulsar en cualquier punto de su
+cabecera, también sobre el título y alrededor de la flecha.
+
+## Panel y ficha permanentes en Mac · 1.8.4
+
+Alumnas y Empresas mantienen siempre sus dos columnas. Al borrar la ficha
+seleccionada se abre la primera disponible; si no queda ninguna, aparece la
+opción de añadir. Se conserva la selección de cada sección durante la sesión.
+El menú Informe ofrece también «Curso completo», sin necesidad de cerrar una
+ficha para exportar el conjunto de datos.
+
+En **Tutores**, cada entrada muestra el nombre, debajo la empresa y después las
+alumnas tutorizadas, incluidas las asignadas en periodos posteriores, sin
+repeticiones. La búsqueda admite nombre de tutor, empresa o alumna. La ficha
+permanece siempre a la derecha y conserva la selección de la sección durante
+la sesión. Si no hay tutores, puedes añadir el primero desde esa columna.

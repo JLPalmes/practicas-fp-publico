@@ -10,7 +10,7 @@ Los instaladores están en [Versiones publicadas](https://github.com/JLPalmes/pr
 
 | Sistema | Versión | Instalación |
 | --- | --- | --- |
-| Mac con Apple Silicon, macOS 14 o posterior | 1.8.2 | Abre el `.dmg` y arrastra Prácticas FP a Aplicaciones. |
+| Mac con Apple Silicon, macOS 14 o posterior | 1.8.4 | Abre el `.dmg` y arrastra Prácticas FP a Aplicaciones. |
 | Windows 10/11 de 64 bits | 1.8.2-windows.2, edición de pruebas | Ejecuta `Instalar-PracticasFP-…-x64.exe`. Requiere .NET Framework 4.8 recomendado. |
 
 La edición Mac tiene firma local y no está notarizada. La edición Windows no

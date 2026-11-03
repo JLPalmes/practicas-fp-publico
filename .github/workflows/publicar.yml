@@ -23,8 +23,8 @@ jobs:
           cp LICENSE AVISO-LICENCIA.txt dist/Mac/Contenido/
           ln -s /Applications dist/Mac/Contenido/Aplicaciones
           printf 'Arrastra PracticasFP.app a Aplicaciones. Cierra la versión anterior antes de reemplazarla. Los datos se conservan por separado.\n' > dist/Mac/Contenido/Instalación.txt
-          hdiutil create -volname 'Prácticas FP 1.8.2 · Apple Silicon' -srcfolder dist/Mac/Contenido -format UDZO dist/Mac/PracticasFP-1.8.2-AppleSilicon-Instalador.dmg
-          hdiutil verify dist/Mac/PracticasFP-1.8.2-AppleSilicon-Instalador.dmg
+          hdiutil create -volname 'Prácticas FP 1.8.4 · Apple Silicon' -srcfolder dist/Mac/Contenido -format UDZO dist/Mac/PracticasFP-1.8.4-AppleSilicon-Instalador.dmg
+          hdiutil verify dist/Mac/PracticasFP-1.8.4-AppleSilicon-Instalador.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: instalador-mac
@@ -59,4 +59,4 @@ jobs:
         run: |
           cp LICENSE AVISO-LICENCIA.txt distribucion/
           (cd distribucion && sha256sum *.dmg *.exe LICENSE AVISO-LICENCIA.txt > SHA256SUMS.txt)
-          gh release create "$GITHUB_REF_NAME" distribucion/* --verify-tag --title 'Prácticas FP · Mac 1.8.2 y Windows 1.8.2-windows.2' --notes-file NOTAS-PUBLICACION.md
+          gh release create "$GITHUB_REF_NAME" distribucion/* --verify-tag --title 'Prácticas FP · Mac 1.8.4 y Windows 1.8.2-windows.2' --notes-file NOTAS-PUBLICACION.md

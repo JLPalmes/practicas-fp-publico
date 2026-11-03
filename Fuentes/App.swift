@@ -60,6 +60,35 @@ struct Notes: View {
     var title = "Observaciones"; @Binding var text: String
     var body: some View { VStack(alignment: .leading) { Text(title).font(.caption).foregroundStyle(.secondary); TextEditor(text: $text).frame(minHeight: 65).padding(5).background(.background).clipShape(RoundedRectangle(cornerRadius: 6)) } }
 }
+struct WideDisclosureStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                configuration.isExpanded.toggle()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: configuration.isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .frame(width: 24, height: 24)
+                        .accessibilityHidden(true)
+                    configuration.label
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 4)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(configuration.isExpanded ? "Desplegada" : "Plegada")
+            .accessibilityHint("Pulsa para abrir o cerrar la sección")
+            if configuration.isExpanded {
+                configuration.content
+            }
+        }
+    }
+}
 struct FoldableSection<Content: View>: View {
     var title: String
     @AppStorage private var expanded: Bool
@@ -115,12 +144,12 @@ struct PanelDivider: View {
         Rectangle().fill(Color.secondary.opacity(0.18)).frame(width: 6).contentShape(Rectangle())
             .gesture(DragGesture(coordinateSpace: .global).onChanged { value in
                 if initial == nil { initial = width }
-                width = min(maximum, max(340, (initial ?? width) + value.translation.width))
+                width = min(maximum, max(300, (initial ?? width) + value.translation.width))
             }.onEnded { _ in initial = nil })
             .help("Arrastra para ajustar el ancho del panel")
             .accessibilityLabel("Ancho del panel")
             .accessibilityAdjustableAction { direction in
-                width = min(maximum, max(340, width + (direction == .increment ? 20 : -20)))
+                width = min(maximum, max(300, width + (direction == .increment ? 20 : -20)))
             }
     }
 }
@@ -129,13 +158,23 @@ struct RootView: View {
     @StateObject private var navigation = WorkspaceNavigation()
     @AppStorage("PracticasFP.Width.Alumnas") private var studentPanelWidth = 380.0
     @AppStorage("PracticasFP.Width.Empresas") private var companyPanelWidth = 380.0
+    @AppStorage("PracticasFP.Width.Tutores") private var tutorPanelWidth = 300.0
     var page: String {
         get { navigation.page }
         nonmutating set { navigation.switchSection(newValue) }
     }
     var selected: UUID? {
-        get { navigation.selected }
+        get {
+            guard ["Alumnas", "Empresas", "Tutores"].contains(page) else { return navigation.selected }
+            return recordIDs.contains(where: { $0 == navigation.selected }) ? navigation.selected : recordIDs.first
+        }
         nonmutating set { navigation.selected = newValue }
+    }
+    var recordIDs: [UUID] {
+        page == "Alumnas" ? store.db.students.map(\.id) : page == "Empresas" ? store.db.companies.map(\.id) : store.db.tutors.map(\.id)
+    }
+    func ensureWorkspaceSelection() {
+        if ["Alumnas", "Empresas", "Tutores"].contains(page) { navigation.ensureSelection(in: recordIDs) }
     }
     var search: String {
         get { navigation.search }
@@ -151,12 +190,12 @@ struct RootView: View {
     @LocalState private var workFilter: StudentWorkFilter = .all
     var body: some View {
         NavigationSplitView {
-            VStack(alignment: .leading, spacing: 20) {
-                Label("Prácticas FP", systemImage: "leaf.fill").font(.title2.bold()).foregroundStyle(accent).padding(.top, 15)
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Prácticas FP", systemImage: "leaf.fill").font(.title2.bold()).foregroundStyle(accent).padding(.top, 6)
                 Text(store.db.institute).font(.caption).foregroundStyle(.secondary)
                 ForEach([("Alumnas","person.2"),("Empresas","building.2"),("Pendientes","checklist"),("Historial","archivebox"),("Tutores","person.crop.rectangle"),("Calendario","calendar"),("Ajustes y copias","gearshape")], id: \.0) { item in
                     Button { page = item.0; store.endEditingGroup() } label: {
-                        Label(item.0, systemImage: item.1).frame(maxWidth: .infinity, alignment: .leading).padding(10)
+                        Label(item.0, systemImage: item.1).frame(maxWidth: .infinity, alignment: .leading).padding(8)
                             .background(page == item.0 ? accent.opacity(0.14) : .clear).clipShape(RoundedRectangle(cornerRadius: 9))
                     }.buttonStyle(.plain)
                 }
@@ -165,12 +204,12 @@ struct RootView: View {
                 Text(store.status).font(.caption2).foregroundStyle(.secondary)
                 Text(AppIdentity.versionLabel).font(.caption2).foregroundStyle(.secondary)
                     .help("Versión de la copia de Prácticas FP que está abierta")
-            }.padding(16).navigationSplitViewColumnWidth(220)
+            }.padding(12).navigationSplitViewColumnWidth(min: 180, ideal: 190, max: 220)
         } detail: {
             VStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(page).font(.largeTitle.bold())
+                        Text(page).font(.title2.bold())
                         Text("Seguimiento en empresa · \(store.db.course)").foregroundStyle(.secondary)
                     }
                     HStack {
@@ -181,6 +220,12 @@ struct RootView: View {
                             Button("Guardar como texto…") { exportReport(currentReport) }
                             Button("Guardar como PDF…") { savePDFReport(currentReport) }
                             Button("Imprimir…") { printReport(currentReport) }
+                            Divider()
+                            Menu("Curso completo") {
+                                Button("Guardar como texto…") { exportReport(store.db.report()) }
+                                Button("Guardar como PDF…") { savePDFReport(store.db.report()) }
+                                Button("Imprimir…") { printReport(store.db.report()) }
+                            }
                         }
                     }
                     if page == "Alumnas" {
@@ -190,11 +235,10 @@ struct RootView: View {
                         Button(action: add) { Label("Añadir", systemImage: "plus") }.buttonStyle(.borderedProminent)
                     }
                     }
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
+                }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
                 Divider()
                 switch page {
-                case "Alumnas", "Empresas": unifiedWorkspace
-                case "Tutores": records
+                case "Alumnas", "Empresas", "Tutores": unifiedWorkspace
                 case "Pendientes": PendingTasksView(openStudent: { open("Alumnas", $0) }, openCompany: { open("Empresas", $0) })
                 case "Historial": CourseHistoryView()
                 case "Calendario": CalendarView()
@@ -204,10 +248,16 @@ struct RootView: View {
         }
         .sheet(isPresented: $importing) { ImportView().environmentObject(store) }
         .sheet(isPresented: $restoring) { BackupRestoreView().environmentObject(store) }
+        .onAppear { ensureWorkspaceSelection() }
+        .onChange(of: page) { _, _ in ensureWorkspaceSelection() }
+        .onChange(of: store.db.students.map(\.id)) { _, _ in ensureWorkspaceSelection() }
+        .onChange(of: store.db.companies.map(\.id)) { _, _ in ensureWorkspaceSelection() }
+        .onChange(of: store.db.tutors.map(\.id)) { _, _ in ensureWorkspaceSelection() }
         .onReceive(NotificationCenter.default.publisher(for: NSControl.textDidEndEditingNotification)) { _ in store.endEditingGroup() }
         .onReceive(NotificationCenter.default.publisher(for: NSText.didEndEditingNotification)) { _ in store.endEditingGroup() }
         .tint(accent)
-        .frame(minWidth: 1050, minHeight: 720)
+        .disclosureGroupStyle(WideDisclosureStyle())
+        .frame(minWidth: 900, minHeight: 620)
         .alert("Aviso", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) { Button("Aceptar") { store.error = nil } } message: { Text(store.error ?? "") }
     }
     var currentReport: String { store.db.report(studentID: page == "Alumnas" && hasSelectedRecord ? selected : nil, companyID: page == "Empresas" && hasSelectedRecord ? selected : nil) }
@@ -253,7 +303,7 @@ struct RootView: View {
     var dashboard: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 130))], alignment: .leading, spacing: 10) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 10) {
                     metric("Alumnas", "\(store.db.students.count)", "person.2")
                     metric("Asignación definitiva", "\(store.db.students.filter { $0.assignment == "Definitiva" }.count)", "building.2")
                     metric("Práctica iniciada", "\(store.db.students.filter { $0.latestPracticePaperwork[5].done && !$0.latestPracticePaperwork[6].done }.count)", "clock")
@@ -264,17 +314,17 @@ struct RootView: View {
                 }
                 VStack(alignment: .leading) {
                     TextField("Buscar alumna", text: Binding(get: { search }, set: { search = $0 })).textFieldStyle(.roundedBorder)
-                    Picker("Asignación", selection: $assignment) { ForEach(["Todas","Pendiente","Provisional","Definitiva"], id: \.self) { Text($0) } }.frame(width: 230)
-                    Picker("Empresa", selection: $companyFilter) { Text("Todas").tag(nil as UUID?); ForEach(store.db.companies) { Text($0.name).tag(Optional($0.id)) } }.frame(width: 220)
+                    Picker("Asignación", selection: $assignment) { ForEach(["Todas","Pendiente","Provisional","Definitiva"], id: \.self) { Text($0) } }.frame(maxWidth: .infinity)
+                    Picker("Empresa", selection: $companyFilter) { Text("Todas").tag(nil as UUID?); ForEach(store.db.companies) { Text($0.name).tag(Optional($0.id)) } }.frame(maxWidth: .infinity)
                 }
                 Picker("Necesita atención", selection: $workFilter) {
                     ForEach(StudentWorkFilter.allCases) { filter in
                         Text("\(filter.rawValue) (\(store.db.students.filter { store.db.matches($0, workFilter: filter) }.count))").tag(filter)
                     }
                 }
-                VStack(alignment: .leading, spacing: 8) { TextField("Filtrar por grupo", text: $groupFilter).textFieldStyle(.roundedBorder).frame(width: 220); Toggle("Solo con trámites pendientes", isOn: $pendingOnly) }
+                VStack(alignment: .leading, spacing: 8) { TextField("Filtrar por grupo", text: $groupFilter).textFieldStyle(.roundedBorder); Toggle("Solo con trámites pendientes", isOn: $pendingOnly) }
                 if store.db.students.isEmpty {
-                    ContentUnavailableView { Label("Tu seguimiento empieza aquí", systemImage: "person.2.badge.plus") } description: { Text("Añade las empresas, sus tutores y tus alumnas. Cada ficha se guarda automáticamente.") } actions: { Button("Añadir primera alumna") { page = "Alumnas"; add() }.buttonStyle(.borderedProminent) }
+                    Text("Todavía no hay alumnas. Añade la primera desde la columna de ficha.").foregroundStyle(.secondary)
                 } else if filtered.isEmpty { Text("No hay alumnas que coincidan con los filtros.").foregroundStyle(.secondary) }
                 LazyVStack(alignment: .leading, spacing: 10) {
                 ForEach(filtered) { s in
@@ -295,34 +345,40 @@ struct RootView: View {
                     }.buttonStyle(.plain).id(s.id)
                 }
                 }.scrollTargetLayout()
-            }.padding(14).background(ScrollMemory(read: { navigation.scrollOffsets["Alumnas"] ?? 0 }, write: { navigation.scrollOffsets["Alumnas"] = $0 }))
+            }.padding(10).background(ScrollMemory(read: { navigation.scrollOffsets["Alumnas"] ?? 0 }, write: { navigation.scrollOffsets["Alumnas"] = $0 }))
         }
     }
     func metric(_ title: String, _ value: String, _ icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) { Label(title, systemImage: icon).font(.caption).foregroundStyle(.secondary); Text(value).font(.title.bold()) }.frame(maxWidth: .infinity, alignment: .leading).padding(14).background(.background).clipShape(RoundedRectangle(cornerRadius: 10))
+        VStack(alignment: .leading, spacing: 8) { Label(title, systemImage: icon).font(.caption).foregroundStyle(.secondary); Text(value).font(.title.bold()) }.frame(maxWidth: .infinity, alignment: .leading).padding(10).background(.background).clipShape(RoundedRectangle(cornerRadius: 10))
     }
     var selectedTitle: String {
         if page == "Alumnas" { return store.db.students.first { $0.id == selected }?.name.nonEmpty ?? "Alumna sin nombre" }
+        if page == "Tutores" { return store.db.tutors.first { $0.id == selected }?.name.nonEmpty ?? "Tutor sin nombre" }
         return store.db.companies.first { $0.id == selected }?.name.nonEmpty ?? "Empresa sin nombre"
     }
     var selectedSubtitle: String {
         if let student = store.db.students.first(where: { page == "Alumnas" && $0.id == selected }) { return companies(student) + " · " + student.assignment }
         if let company = store.db.companies.first(where: { $0.id == selected }) { return (company.response ?? .uncontacted).title + " · " + store.db.placesLabel(company) }
+        if page == "Tutores", let tutor = store.db.tutors.first(where: { $0.id == selected }) {
+            return company(tutor.companyID) + " · \(store.db.students(tutoredBy: tutor.id).count) alumnas"
+        }
         return ""
     }
     var hasSelectedRecord: Bool {
         if page == "Alumnas" { return store.db.students.contains { $0.id == selected } }
+        if page == "Tutores" { return store.db.tutors.contains { $0.id == selected } }
         return store.db.companies.contains { $0.id == selected }
     }
     var unifiedWorkspace: some View {
         GeometryReader { geometry in
-        let maximum = max(340, geometry.size.width - 456)
-        let width = Binding<Double>(get: { page == "Alumnas" ? studentPanelWidth : companyPanelWidth }, set: { value in
-            if page == "Alumnas" { studentPanelWidth = value } else { companyPanelWidth = value }
+        let maximum = max(300, geometry.size.width - 366)
+        let width = Binding<Double>(get: { page == "Alumnas" ? studentPanelWidth : page == "Empresas" ? companyPanelWidth : tutorPanelWidth }, set: { value in
+            if page == "Alumnas" { studentPanelWidth = value } else if page == "Empresas" { companyPanelWidth = value } else { tutorPanelWidth = value }
         })
         HStack(spacing: 0) {
             Group {
                 if page == "Alumnas" { dashboard }
+                else if page == "Tutores" { tutorsList }
                 else {
                     CompaniesDashboard(
                         openCompany: { open("Empresas", $0) },
@@ -332,48 +388,67 @@ struct RootView: View {
                         filter: $companyPanelFilter,
                         navigation: navigation)
                 }
-            }.frame(width: hasSelectedRecord ? min(maximum, max(340, width.wrappedValue)) : nil)
-                .frame(maxWidth: hasSelectedRecord ? nil : .infinity, maxHeight: .infinity)
-            if hasSelectedRecord {
+            }.frame(width: min(maximum, max(300, width.wrappedValue)))
+                .frame(maxHeight: .infinity)
                 PanelDivider(width: width, maximum: maximum)
                 VStack(spacing: 0) {
+                    if hasSelectedRecord {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(selectedTitle).font(.headline)
                             Text(selectedSubtitle).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button { selected = nil } label: { Label("Cerrar ficha", systemImage: "xmark") }
-                            .help("Cerrar la ficha y ampliar el panel")
-                    }.padding(12)
+                    }.padding(8)
                     Divider()
-                    if page == "Alumnas", let i = store.db.students.firstIndex(where: { $0.id == selected }) {
-                        StudentEditor(s: $store.db.students[i], openCompany: { open("Empresas", $0) }, openTutor: { open("Tutores", $0) }).id(selected)
-                    } else if page == "Empresas", let i = store.db.companies.firstIndex(where: { $0.id == selected }) {
-                        CompanyEditor(c: $store.db.companies[i], openStudent: { open("Alumnas", $0) }, openTutor: { open("Tutores", $0) }).id(selected)
+                    if page == "Alumnas", let student = store.db.students.first(where: { $0.id == selected }) {
+                        StudentEditor(s: Binding(get: { store.db.students.first(where: { $0.id == student.id }) ?? student }, set: { value in
+                            if let i = store.db.students.firstIndex(where: { $0.id == student.id }) { store.db.students[i] = value }
+                        }), openCompany: { open("Empresas", $0) }, openTutor: { open("Tutores", $0) }).id(selected)
+                    } else if page == "Empresas", let company = store.db.companies.first(where: { $0.id == selected }) {
+                        CompanyEditor(c: Binding(get: { store.db.companies.first(where: { $0.id == company.id }) ?? company }, set: { value in
+                            if let i = store.db.companies.firstIndex(where: { $0.id == company.id }) { store.db.companies[i] = value }
+                        }), openStudent: { open("Alumnas", $0) }, openTutor: { open("Tutores", $0) }).id(selected)
+                    } else if page == "Tutores", let tutor = store.db.tutors.first(where: { $0.id == selected }) {
+                        TutorEditor(t: Binding(get: { store.db.tutors.first(where: { $0.id == tutor.id }) ?? tutor }, set: { value in
+                            if let i = store.db.tutors.firstIndex(where: { $0.id == tutor.id }) { store.db.tutors[i] = value }
+                        }), openCompany: { open("Empresas", $0) }, openStudent: { open("Alumnas", $0) }).id(selected)
                     }
-                }.frame(minWidth: 450, idealWidth: 500, maxHeight: .infinity)
-            }
+                    } else {
+                        ContentUnavailableView {
+                            Label(page == "Alumnas" ? "Añade una alumna" : page == "Empresas" ? "Añade una empresa" : "Añade un tutor", systemImage: page == "Empresas" ? "building.2" : "person.badge.plus")
+                        } description: {
+                            Text("La ficha aparecerá aquí, junto al listado.")
+                        } actions: {
+                            Button(action: add) { Label(page == "Alumnas" ? "Añadir alumna" : page == "Empresas" ? "Añadir empresa" : "Añadir tutor", systemImage: "plus") }.buttonStyle(.borderedProminent)
+                        }
+                    }
+                }.frame(minWidth: 360, idealWidth: 420, maxHeight: .infinity)
         }
         }
     }
-    var records: some View {
-        HStack(spacing: 0) {
-            VStack {
-                TextField("Buscar", text: Binding(get: { search }, set: { search = $0 })).textFieldStyle(.roundedBorder).padding(12)
-                List(selection: Binding(get: { selected }, set: { selected = $0 })) {
-                    if page == "Alumnas" { ForEach(store.db.students.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }) { s in VStack(alignment: .leading) { Text(s.name.isEmpty ? "Alumna sin nombre" : s.name); Text(s.assignment).font(.caption).foregroundStyle(.secondary) }.tag(s.id) } }
-                    if page == "Empresas" { ForEach(store.db.companies.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }) { s in Text(s.name.isEmpty ? "Empresa sin nombre" : s.name).tag(s.id) } }
-                    if page == "Tutores" { ForEach(store.db.tutors.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }) { s in Text(s.name.isEmpty ? "Tutor sin nombre" : s.name).tag(s.id) } }
+    var tutorsList: some View {
+        VStack(spacing: 0) {
+            TextField("Buscar tutor, empresa o alumna", text: Binding(get: { search }, set: { search = $0 }))
+                .textFieldStyle(.roundedBorder).padding(10)
+            List(selection: Binding(get: { selected }, set: { selected = $0 })) {
+                ForEach(store.db.tutors.filter { tutor in
+                    search.isEmpty || tutor.name.localizedCaseInsensitiveContains(search) || company(tutor.companyID).localizedCaseInsensitiveContains(search) || store.db.students(tutoredBy: tutor.id).contains { $0.name.localizedCaseInsensitiveContains(search) }
+                }) { tutor in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(tutor.name.nonEmpty ?? "Tutor sin nombre").font(.headline)
+                        Text(company(tutor.companyID)).foregroundStyle(.secondary)
+                        let students = store.db.students(tutoredBy: tutor.id)
+                        if students.isEmpty {
+                            Text("Sin alumnas asignadas").font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            ForEach(students) { student in
+                                Text(student.name.nonEmpty ?? "Alumna sin nombre").font(.caption)
+                            }
+                        }
+                    }.padding(.vertical, 4).tag(tutor.id)
                 }
-            }.frame(width: 230)
-            Divider()
-            Group {
-                if page == "Alumnas", let i = store.db.students.firstIndex(where: { $0.id == selected }) { StudentEditor(s: $store.db.students[i], openCompany: { open("Empresas", $0) }, openTutor: { open("Tutores", $0) }).id(selected) }
-                else if page == "Empresas", let i = store.db.companies.firstIndex(where: { $0.id == selected }) { CompanyEditor(c: $store.db.companies[i], openStudent: { open("Alumnas", $0) }, openTutor: { open("Tutores", $0) }).id(selected) }
-                else if page == "Tutores", let i = store.db.tutors.firstIndex(where: { $0.id == selected }) { TutorEditor(t: $store.db.tutors[i], openCompany: { open("Empresas", $0) }, openStudent: { open("Alumnas", $0) }).id(selected) }
-                else { ContentUnavailableView("Selecciona una ficha", systemImage: "rectangle.and.pencil.and.ellipsis", description: Text("O pulsa Añadir para crear una nueva.")) }
-            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }.listStyle(.plain)
         }
     }
     var settings: some View {
@@ -435,7 +510,7 @@ struct StudentEditor: View {
             }
             FoldableSection("student.notes", "Observaciones") { Notes(text: $s.notes) }
             Section { DeleteButton(title: "Eliminar alumna") { store.db.students.removeAll { $0.id == s.id } } }
-        }.formStyle(.grouped)
+        }.formStyle(.grouped).contentMargins(.horizontal, 8, for: .scrollContent).contentMargins(.vertical, 8, for: .scrollContent)
     }
     @ViewBuilder var calculation: some View {
         if let error = result.error { Text(error).foregroundStyle(.red) }
@@ -493,7 +568,7 @@ struct CompanyEditor: View {
                 if store.db.students.contains(where: { store.db.companyIDs(for: $0).contains(c.id) }) || store.db.tutors.contains(where: { $0.companyID == c.id }) { Text("Para eliminar esta empresa, desvincula primero sus alumnas y tutores.").font(.caption) }
                 else { DeleteButton(title: "Eliminar empresa") { store.db.companies.removeAll { $0.id == c.id } } }
             }
-        }.formStyle(.grouped)
+        }.formStyle(.grouped).contentMargins(.horizontal, 8, for: .scrollContent).contentMargins(.vertical, 8, for: .scrollContent)
     }
     private func tutorLink(_ tutor: Tutor) -> some View {
         VStack(alignment: .leading) {
@@ -512,17 +587,17 @@ struct TutorEditor: View {
             Section("Tutor de empresa") {
                 TextField("Nombre y apellidos", text: $t.name)
                 Picker("Empresa", selection: $t.companyID) { Text("Sin asignar").tag(nil as UUID?); ForEach(store.db.companies) { Text($0.name).tag(Optional($0.id)) } }
-                    .disabled(store.db.students.contains { $0.tutorID == t.id || $0.shifts.contains(where: { $0.tutorID == t.id }) })
+                    .disabled(!store.db.students(tutoredBy: t.id).isEmpty)
                 if let id = t.companyID { Button("Abrir ficha de empresa") { openCompany(id) } }
                 TextField("Teléfono", text: $t.phone); TextField("Email", text: $t.email)
             }
-            Section("Alumnas tutorizadas") { ForEach(store.db.students.filter { $0.tutorID == t.id || $0.shifts.contains(where: { $0.tutorID == t.id }) }) { student in Button(student.name) { openStudent(student.id) } } }
+            Section("Alumnas tutorizadas") { ForEach(store.db.students(tutoredBy: t.id)) { student in Button(student.name) { openStudent(student.id) } } }
             Section { Notes(text: $t.notes) }
             Section {
                 if store.db.students.contains(where: { $0.tutorID == t.id || $0.shifts.contains(where: { $0.tutorID == t.id }) }) { Text("Desvincula sus alumnas antes de cambiar su empresa o eliminarlo.").font(.caption) }
                 else { DeleteButton(title: "Eliminar tutor") { store.db.tutors.removeAll { $0.id == t.id } } }
             }
-        }.formStyle(.grouped)
+        }.formStyle(.grouped).contentMargins(.horizontal, 8, for: .scrollContent).contentMargins(.vertical, 8, for: .scrollContent)
     }
 }
 struct DeleteButton: View {
