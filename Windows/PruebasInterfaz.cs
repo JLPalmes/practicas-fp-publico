@@ -85,7 +85,7 @@ class UiTests {
                 store.Change(()=>J.EditArray(store.Db,"students").Clear());Invoke(form,"Render");
                 Check(Field<string>(form,"selected")==""&&!split.Panel2Collapsed,"Vaciar la lista mantiene la columna de ficha");
                 var add=All(content).OfType<Button>().First(b=>b.Text=="Añadir alumna");
-                add.PerformClick();Pump();Check(Model.Items(store.Db,"students").Count==1&&Field<string>(form,"selected")!="","La columna vacía permite añadir y abre la nueva ficha");
+                add.PerformClick();Pump();Check(Model.Items(store.Db,"students").Count()==1&&Field<string>(form,"selected")!="","La columna vacía permite añadir y abre la nueva ficha");
                 form.Close();
             }
             Console.WriteLine("SUPERADAS UI: "+checks);return 0;
