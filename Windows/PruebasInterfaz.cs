@@ -117,7 +117,9 @@ class UiTests {
                 Check(followupBody.Controls.Count>0,"Seguimiento mensual muestra contenido incluso sin contactos");
                 followup.PerformClick();Pump();
                 Check(!followupBody.Visible,"Plegar Seguimiento mensual oculta su contenido");
-                form.Size=new Size(1300,760);Pump();
+                form.Size=new Size(1300,760);
+                split.SplitterDistance=split.Panel1MinSize;
+                Pump();
                 var columns=All(content).OfType<FlowLayoutPanel>().First(p=>(string)p.Tag=="columns");
                 Check(columns.Controls[0].Top==columns.Controls[1].Top,"Contacto y plazas se muestran en paralelo con espacio suficiente");
                 store.Change(()=>J.EditArray(store.Db,"exclusions").Clear());

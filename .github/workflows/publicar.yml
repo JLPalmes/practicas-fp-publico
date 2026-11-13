@@ -22,7 +22,7 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
         run: |
           version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' PracticasFP.app/Contents/Info.plist)
-          if [ "$REF_TYPE" = tag ]; then test "$REF_NAME" = "v$version"; fi
+          if [ "$REF_TYPE" = tag ]; then test "${REF_NAME%%-publica.*}" = "v$version"; fi
           mkdir -p dist/Mac/Contenido
           cp -R PracticasFP.app dist/Mac/Contenido/
           cp LICENSE AVISO-LICENCIA.txt dist/Mac/Contenido/
@@ -72,6 +72,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=${GITHUB_REF_NAME#v}
+          version=${version%%-publica.*}
           test -f "distribucion/PracticasFP-$version-AppleSilicon-Instalador.dmg"
           test -f "distribucion/Instalar-PracticasFP-$version-x64.exe"
           cp LICENSE AVISO-LICENCIA.txt distribucion/
