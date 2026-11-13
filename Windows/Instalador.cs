@@ -22,7 +22,7 @@ static class Installer {
                 Text="Instalar Prácticas FP para Windows",Size=new Size(590,310),StartPosition=FormStartPosition.CenterScreen,FormBorderStyle=FormBorderStyle.FixedDialog,MaximizeBox=false,Font=new Font("Segoe UI",10)
             }) {
                 var label=new Label {
-                    Left=22,Top=20,Width=535,Height=160,Text="Prácticas FP · 1.8.4-windows.8\nVersión de pruebas para Windows de 64 bits\n\nSe instalará para tu usuario en:\n"+Folder+"\n\nLos datos y copias se guardan por separado y se conservan al desinstalar."
+                    Left=22,Top=20,Width=535,Height=160,Text="Prácticas FP · 1.8.5\nVersión de pruebas para Windows de 64 bits\n\nSe instalará para tu usuario en:\n"+Folder+"\n\nLos datos y copias se guardan por separado y se conservan al desinstalar."
                 };
                 var install=new Button {
                     Text="Instalar",Left=330,Top=205,Width=105,Height=35
@@ -97,7 +97,7 @@ static class Installer {
             foreach(string link in links)Shortcut(link,app);
             using(var k=Registry.CurrentUser.CreateSubKey(Key)) {
                 k.SetValue("DisplayName","Prácticas FP para Windows");
-                k.SetValue("DisplayVersion","1.8.4-windows.8");
+                k.SetValue("DisplayVersion","1.8.5");
                 k.SetValue("Publisher","Prácticas FP");
                 k.SetValue("InstallLocation",Folder);
                 k.SetValue("DisplayIcon",app);

@@ -55,7 +55,7 @@ namespace PracticasFP {
             store=value;
             fields=content;
             preferences=new ViewPreferences(store.Folder);
-            Text="Prácticas FP · Windows · 1.8.4-windows.8 (pruebas)";
+            Text="Prácticas FP · Windows · 1.8.5 (pruebas)";
             MinimumSize=new Size(900,620);
             Size=new Size(1280,850);
             StartPosition=FormStartPosition.CenterScreen;
@@ -81,7 +81,7 @@ namespace PracticasFP {
                 nav.Controls.Add(b);
             }
             nav.Controls.Add(new Label {
-                Text="1.8.4 · Windows\nVersión de pruebas",ForeColor=Color.White,AutoSize=true,Margin=new Padding(4,28,0,0)
+                Text="1.8.5 · Windows\nVersión de pruebas",ForeColor=Color.White,AutoSize=true,Margin=new Padding(4,28,0,0)
             });
             var area=new Panel {
                 Dock=DockStyle.Fill,Padding=new Padding(8)

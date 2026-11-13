@@ -247,7 +247,7 @@ namespace PracticasFP {
         }
         void Settings() {
             Title("Datos y copias · Windows");
-            Note("Versión 1.8.4-windows.8 · Edición de pruebas\nFormato de datos 4 · Compatible con copias de Mac 1 a 4.");
+            Note("Versión 1.8.5 · Edición de pruebas\nFormato de datos 4 · Compatible con copias de Mac 1 a 4.");
             if(store.Blocked)Note(store.Error);
             else {
                 TextField(store.Db,"institute","Centro");

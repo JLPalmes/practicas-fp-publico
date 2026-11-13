@@ -1,10 +1,10 @@
 # Prácticas FP para Windows · edición de pruebas
 
-Adaptación nativa de la versión de Mac 1.8.4. Identificador: **1.8.4-windows.8**.
+Versión **1.8.5** para Windows.
 
 ## Instalar y probar
 
-1. Ejecuta `dist\Windows\Instalar-PracticasFP-1.8.4-windows.8-x64.exe`.
+1. Ejecuta `dist\Windows\Instalar-PracticasFP-1.8.5-x64.exe`.
 2. Pulsa **Instalar**. No requiere permisos de administrador y no abre la aplicación automáticamente.
 3. Abre **Prácticas FP** desde el escritorio o el menú Inicio.
 4. Prueba primero con fichas ficticias. Para usar una copia de Mac, ve a **Ajustes y copias → Restaurar copia de Windows o Mac…**. Antes de sustituir datos se muestra un resumen y se conserva una copia previa.

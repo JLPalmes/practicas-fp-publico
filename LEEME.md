@@ -1,6 +1,6 @@
 # Prácticas FP
 
-Edición de Mac: aplicación nativa para Apple Silicon (arm64), macOS 14 o posterior. Versión 1.8.4.
+Edición de Mac: aplicación nativa para Apple Silicon (arm64), macOS 14 o posterior. Versión 1.8.5.
 Abre **PracticasFP.app** con doble clic. Puedes moverla a la carpeta Aplicaciones; los datos se conservan por separado.
 
 Hay una primera adaptación nativa **para Windows 10/11 de 64 bits**, con instalador y formato de datos compatible. Consulta [Windows/LEEME.md](Windows/LEEME.md) para instalarla, trasladar copias y conocer las diferencias de esta edición de pruebas. La aplicación descrita a continuación es la edición de Mac.
