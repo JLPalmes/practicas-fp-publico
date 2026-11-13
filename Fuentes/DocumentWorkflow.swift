@@ -81,7 +81,7 @@ struct DocumentFlow: Codable, Equatable, Identifiable {
     var reportLines: [String] {
         kind.stages.map { key, title in
             let item = milestones.first { $0.id == key }!
-            return "\(kind.title) · \(title): " + (item.completed ? "Hecho · " + (item.date.map(dateText) ?? "Fecha sin registrar") : "Pendiente")
+            return "\(kind.title) · \(title): " + (item.completed ? "Hecho" : "Pendiente")
         }
     }
 }

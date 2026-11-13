@@ -1,10 +1,10 @@
 # Prácticas FP para Windows · edición de pruebas
 
-Adaptación nativa de la versión de Mac 1.8.4. Identificador: **1.8.4-windows.3**.
+Adaptación nativa de la versión de Mac 1.8.4. Identificador: **1.8.4-windows.8**.
 
 ## Instalar y probar
 
-1. Ejecuta `dist\Windows\Instalar-PracticasFP-1.8.4-windows.3-x64.exe`.
+1. Ejecuta `dist\Windows\Instalar-PracticasFP-1.8.4-windows.8-x64.exe`.
 2. Pulsa **Instalar**. No requiere permisos de administrador y no abre la aplicación automáticamente.
 3. Abre **Prácticas FP** desde el escritorio o el menú Inicio.
 4. Prueba primero con fichas ficticias. Para usar una copia de Mac, ve a **Ajustes y copias → Restaurar copia de Windows o Mac…**. Antes de sustituir datos se muestra un resumen y se conserva una copia previa.
@@ -17,12 +17,11 @@ Destinada a Windows 10/11 de **64 bits**, con .NET Framework (4.8 recomendado). 
 - Cupos, asignación provisional/definitiva y comprobación de plazas.
 - Objetivo de horas, jornadas y cambios por fecha; prácticas en varias empresas, cada una con sus documentos.
 - Calendario local del curso, exclusiones inclusivas y días del instituto.
-- Hitos de Anexos I y II y conciertos; fechas desconocidas y coherencia entre envíos y recepciones.
-- Seguimiento mensual por empresa y panel de pendientes, separado de la documentación de cierre.
+- Casillas de completado en anexos y conciertos, con coherencia entre envíos y recepciones.
+- Seguimiento mensual agrupado por empresa.
 - Importación CSV y Excel .xlsx con elección de hoja y fila de cabecera, correspondencia de columnas y selección previa. Protege los ceros iniciales; omite duplicados y señala fórmulas y números largos para revisión. Límite: 20 MB, 10.000 filas y 256 columnas.
 - Guardado automático **al salir de cada campo**; Deshacer/Rehacer de hasta 50 cambios en la sesión. El historial almacena las diferencias de cada operación, sin duplicar los cursos archivados en cada edición. Se limita a unos 16 MB, conservando al menos la última operación aunque por sí sola supere ese tamaño.
-- Copias automáticas al abrir datos existentes, antes de importar, restaurar y archivar; exportación manual verificada.
-- Historial de cursos con instantánea completa, consulta de resumen y exportación de copia.
+- Copias automáticas al abrir datos existentes, antes de importar y restaurar, con exportación manual verificada.
 - Informes de alumna, empresa o curso en texto y mediante impresión paginada A4. En el diálogo de impresión selecciona **Microsoft Print to PDF** para guardar un PDF.
 
 ## Datos y compatibilidad
@@ -71,6 +70,14 @@ Usa el compilador de .NET Framework incluido en Windows. Compila la aplicación,
 Los instaladores se nombran `Instalar-PracticasFP-<versión>-x64.exe`. La versión se obtiene automáticamente de la aplicación recién compilada y se comprueba que coincida con la del instalador. Así, cada versión conserva un nombre distinto al descargarla o compartirla.
 
 Resultados en `dist\Windows\`. `Pruebas.exe` ejecuta 73 comprobaciones del cálculo, datos, migraciones, documentos, copias, importación, contactos, consultas sin efectos secundarios, historial incremental, reutilización de cálculos y recuperación de actualizaciones. La interfaz se comprobó abriendo la aplicación compilada con una carpeta de datos ficticios independiente mediante `--data-directory`.
+
+## Mejoras 1.8.4-windows.5
+
+Las fichas reutilizan los campos de texto que comparten. Los anexos, el concierto y varios apartados de datos se cargan al abrirlos si estaban plegados.
+
+## Mejoras 1.8.4-windows.4
+
+Se agrupan los ajustes de diseño al abrir una ficha y al marcar hitos para reducir el trabajo de redibujado.
 
 ## Mejoras 1.8.4-windows.3
 

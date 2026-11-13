@@ -656,7 +656,7 @@ namespace PracticasFP {
             return b.ToString();
         }
         static void ReportFlow(StringBuilder b,object flow) {
-            foreach(var m in Items(flow,"milestones"))b.AppendLine(J.S(flow,"kind")+" · "+StageTitle(J.S(m,"id"))+": "+(J.B(m,"completed")?"Hecho · "+(J.Get(m,"date")==null?"Fecha sin registrar":J.Text(J.Date(m,"date"))):"Pendiente"));
+            foreach(var m in Items(flow,"milestones"))b.AppendLine(J.S(flow,"kind")+" · "+StageTitle(J.S(m,"id"))+": "+(J.B(m,"completed")?"Hecho":"Pendiente"));
         }
     }
 }

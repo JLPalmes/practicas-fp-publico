@@ -7,6 +7,24 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 namespace PracticasFP {
+    internal sealed class DocumentCheckBox : CheckBox {
+        protected override CreateParams CreateParams {
+            get {
+                var parameters=base.CreateParams;
+                parameters.Style |= 0x2000; // BS_MULTILINE
+                return parameters;
+            }
+        }
+    }
+
+    internal sealed class BufferedEditor : Panel {
+        public BufferedEditor() { DoubleBuffered=true; }
+    }
+
+    internal sealed class BufferedFlow : FlowLayoutPanel {
+        public BufferedFlow() { DoubleBuffered=true; }
+    }
+
     public sealed class TutorListButton: Button {
         readonly string[] lines;
         public TutorListButton(string[] value) {
@@ -66,7 +84,8 @@ namespace PracticasFP {
         }
     }
     public partial class MainForm {
-        readonly FlowLayoutPanel content=new FlowLayoutPanel();
+        readonly FlowLayoutPanel content=new BufferedFlow();
+        readonly List<FlowLayoutPanel> buildingSections=new List<FlowLayoutPanel>();
         readonly Label pinned=new Label();
         readonly Dictionary<string,int> scrollPositions=new Dictionary<string,int>();
         readonly Dictionary<string,int> filterSelections=new Dictionary<string,int>();
@@ -116,20 +135,32 @@ namespace PracticasFP {
             width=Math.Max(120,width-control.Margin.Horizontal);
             var flow=control as FlowLayoutPanel;
             if(flow!=null) {
-                flow.MaximumSize=new Size(width,0);
-                flow.Width=width;
-                if((string)flow.Tag=="document-grid") {
-                    int columns=Math.Max(1,width/154);
-                    int stageWidth=Math.Max(130,width/columns-8);
-                    foreach(Control stage in flow.Controls)FitControl(stage,stageWidth+stage.Margin.Horizontal);
+                flow.SuspendLayout();
+                try {
+                    flow.MaximumSize=new Size(width,0);
+                    flow.Width=width;
+                    string layout=flow.Tag as string;
+                    if(layout=="columns"||layout=="contact-columns"||layout=="document-columns") {
+                        int minimumWidth=layout=="columns"?225:layout=="contact-columns"?155:180;
+                        int columnCount=Math.Max(1,Math.Min(layout=="document-columns"?3:2,width/minimumWidth));
+                        int columnWidth=width/columnCount;
+                        foreach(Control child in flow.Controls)FitControl(child,columnWidth);
+                    }
+                    else foreach(Control child in flow.Controls)FitControl(child,width-flow.Padding.Horizontal);
+                } finally {
+                    flow.ResumeLayout(true);
                 }
-                else foreach(Control child in flow.Controls)FitControl(child,width-flow.Padding.Horizontal);
             }
             else if(control is Button) {
                 control.AutoSize=false;control.Width=width;
                 control.Height=Math.Max(32,TextRenderer.MeasureText(control.Text,control.Font,new Size(Math.Max(60,width-12),int.MaxValue),TextFormatFlags.WordBreak).Height+8);
             }
             else if(control is TextBox||control is ComboBox)control.Width=width;
+            else if(control is DocumentCheckBox) {
+                control.AutoSize=false;
+                control.Width=width;
+                control.Height=TextRenderer.MeasureText(control.Text,control.Font,new Size(width-28,int.MaxValue),TextFormatFlags.WordBreak).Height+8;
+            }
             else if(control is Label||control is CheckBox)control.MaximumSize=new Size(width,0);
         }
         void FitListColumns() {
@@ -198,10 +229,29 @@ namespace PracticasFP {
             int offset;
             scrollPositions.TryGetValue(ViewKey,out offset);
             try {
-                RebuildEditor();
+                int fittedWidth;
+                editor.SuspendLayout();
+                content.SuspendLayout();
+                try {
+                    RebuildEditor();
+                    foreach(string slot in textFields.Keys.ToArray()) {
+                        var field=textFields[slot];
+                        if(field.Input.Parent!=null)continue;
+                        field.Input.Dispose();
+                        field.Caption.Dispose();
+                        textFields.Remove(slot);
+                    }
+                    fittedWidth=FieldWidth;
+                    FitFields();
+                } finally {
+                    foreach(var body in buildingSections)body.ResumeLayout(true);
+                    buildingSections.Clear();
+                    content.ResumeLayout(true);
+                    editor.ResumeLayout(true);
+                }
                 visibleKey=ViewKey;
                 UpdatePinned();
-                FitFields();
+                if(FieldWidth!=fittedWidth)FitFields();
                 if(same&&focusTag!=null) {
                     var target=FindTag(content,focusTag);
                     if(target!=null&&target.CanFocus) {
@@ -210,8 +260,6 @@ namespace PracticasFP {
                         if(text!=null)text.SelectionStart=Math.Min(caret,text.TextLength);
                     }
                 }
-                editor.PerformLayout();
-                FitFields();
                 editor.AutoScrollPosition=new Point(0,offset);
             }
             finally {
@@ -227,7 +275,8 @@ namespace PracticasFP {
             }
             return null;
         }
-        void Title(string text) {
+        void Title(string text,Action populate=null,FlowLayoutPanel parent=null) {
+            parent=parent??content;
             int count;
             titleCounts.TryGetValue(text,out count);
             titleCounts[text]=count+1;
@@ -235,21 +284,46 @@ namespace PracticasFP {
             var body=new FlowLayoutPanel {
                 Tag=key,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Width=FieldWidth,Margin=new Padding(0,0,0,4)
             };
+            if(building) {
+                body.SuspendLayout();
+                buildingSections.Add(body);
+            }
             bool open=preferences.Open(key);
+            bool populated=populate==null;
             body.Visible=open;
             var toggle=new Button {
                 Name="section-toggle",AccessibleName=text,Text=(open?"▾  ":"▸  ")+text,Width=FieldWidth,Height=32,TextAlign=ContentAlignment.MiddleLeft,FlatStyle=FlatStyle.Flat,BackColor=Color.FromArgb(226,236,235),Font=new Font(Font,FontStyle.Bold),Margin=new Padding(0,6,0,3)
             };
             toggle.Click+=(s,e)=> {
                 RememberView();
-                body.Visible=!body.Visible;
+                bool show=!body.Visible;
+                if(show&&!populated) {
+                    var previous=fields;
+                    content.SuspendLayout();
+                    body.SuspendLayout();
+                    try {
+                        fields=body;
+                        populate();
+                        populated=true;
+                        FitControl(body,FieldWidth);
+                    } finally {
+                        fields=previous;
+                        body.ResumeLayout(true);
+                        content.ResumeLayout(true);
+                    }
+                }
+                body.Visible=show;
                 toggle.Text=(body.Visible?"▾  ":"▸  ")+text;
                 preferences.SetOpen(key,body.Visible);
                 content.PerformLayout();
             };
-            content.Controls.Add(toggle);
-            content.Controls.Add(body);
+            parent.Controls.Add(toggle);
+            parent.Controls.Add(body);
             fields=body;
+            if(open&&!populated) {
+                populate();
+                populated=true;
+            }
         }
         void DocumentChanged(Dictionary<string,object> owner,string kind,string stage,bool completed,object date) {
             var flow=Model.EditFlow(owner,kind);
@@ -262,14 +336,21 @@ namespace PracticasFP {
                 int offset=Math.Max(0,-editor.AutoScrollPosition.Y);
                 var focused=FocusedControl(group);string tag=focused==null?null:focused.Tag as string;
                 var previous=fields;building=true;
+                editor.SuspendLayout();
+                content.SuspendLayout();
+                group.SuspendLayout();
                 try {
-                    group.SuspendLayout();
                     foreach(Control c in group.Controls.Cast<Control>().ToArray())c.Dispose();
                     group.Controls.Clear();fields=group;DocumentFields(owner,kind,group);
-                    group.ResumeLayout(true);FitFields();
-                    if(tag!=null){var next=FindTag(group,tag);if(next!=null)next.Focus();}
-                    editor.AutoScrollPosition=new Point(0,offset);
-                }finally{fields=previous;building=false;}
+                    FitControl(group,FieldWidth);
+                }finally{
+                    group.ResumeLayout(true);
+                    content.ResumeLayout(true);
+                    editor.ResumeLayout(true);
+                    fields=previous;building=false;
+                }
+                if(tag!=null){var next=FindTag(group,tag);if(next!=null)next.Focus();}
+                editor.AutoScrollPosition=new Point(0,offset);
             }));
         }
     }

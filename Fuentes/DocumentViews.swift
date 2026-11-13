@@ -19,53 +19,26 @@ struct OptionalDateEditor: View {
 }
 struct DocumentTimeline: View {
     @Binding var flow: DocumentFlow
-    @LocalState private var selected: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack { Text(flow.kind.title).font(.headline); Spacer(); Text("\(flow.completedCount)/\(flow.milestones.count)").foregroundStyle(.secondary) }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), alignment: .top)], alignment: .leading, spacing: 8) {
-                ForEach(Array(flow.kind.stages.enumerated()), id: \.element.0) { index, stage in
-                    milestoneButton(stage.0, title: "\(index + 1). " + stage.1)
+            HStack {
+                Text(flow.kind.title).font(.headline)
+                Spacer()
+                Text("\(flow.completedCount)/\(flow.milestones.count)").foregroundStyle(.secondary)
+            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), alignment: .topLeading)], alignment: .leading, spacing: 8) {
+                ForEach(flow.kind.stages, id: \.0) { stage in
+                    Toggle(isOn: Binding(get: { flow.done(stage.0) }, set: { value in
+                        var updated = flow
+                        let date = flow.milestones.first { $0.id == stage.0 }?.date
+                        updated.complete(stage.0, value, on: date)
+                        flow = updated
+                    })) {
+                        Text(stage.1).fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
-            Text("Siguiente hito pendiente: " + flow.nextTitle).font(.caption).foregroundStyle(.secondary)
         }.padding(10).background(accent.opacity(0.035)).clipShape(RoundedRectangle(cornerRadius: 10))
-    }
-    private func milestonePresentation(_ id: String) -> Binding<Bool> {
-        Binding<Bool>(get: { selected == id }, set: { isPresented in
-            if !isPresented { selected = nil }
-        })
-    }
-    private func milestoneButton(_ id: String, title: String) -> some View {
-        let item = flow.milestones.first { $0.id == id }!
-        return Button { selected = id } label: {
-            VStack(spacing: 4) {
-                Image(systemName: item.completed ? "checkmark.circle.fill" : "circle").font(.title2).foregroundStyle(item.completed ? accent : Color.secondary)
-                Text(title).font(.caption).multilineTextAlignment(.center).frame(maxWidth: .infinity).fixedSize(horizontal: false, vertical: true)
-                Text(item.completed ? item.date.map(dateText) ?? "Fecha sin registrar" : "Pendiente").font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity).fixedSize(horizontal: false, vertical: true)
-            }.padding(.vertical, 4)
-        }.buttonStyle(.plain).accessibilityLabel(flow.kind.title + " · " + title)
-            .accessibilityValue(item.completed ? "Hecho" : "Pendiente")
-            .popover(isPresented: milestonePresentation(id)) {
-                milestoneEditor(id, title: title)
-            }
-    }
-    private func milestoneEditor(_ id: String, title: String) -> some View {
-        let done = flow.done(id)
-        return VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.headline)
-            Toggle("Hito realizado", isOn: Binding(get: { flow.done(id) }, set: { value in
-                var updated = flow; updated.complete(id, value); flow = updated
-            }))
-            if done {
-                OptionalDateEditor(title: "Fecha", date: Binding(get: { flow.milestones.first { $0.id == id }?.date }, set: { date in
-                    var updated = flow
-                    if let i = updated.milestones.firstIndex(where: { $0.id == id }) { updated.milestones[i].date = date }
-                    flow = updated
-                }))
-            }
-            Text("Marca cada envío y cada recepción por separado. Los hitos sin fecha no se interpretan como realizados hoy.").font(.caption).foregroundStyle(.secondary)
-        }.padding().frame(width: 360)
     }
 }
 struct StudentDocuments: View {
@@ -119,7 +92,6 @@ struct PracticePeriodsEditor: View {
                         Text("Sin asignar").tag(nil as UUID?)
                         ForEach(store.db.tutors.filter { s.companyID != nil && $0.companyID == s.companyID }) { Text($0.name).tag(Optional($0.id)) }
                     }
-                    TextField("Horas diarias iniciales", value: $s.hours, format: .number)
                     Checklist(items: $s.paperwork, only: [0,5,6])
                 }
                 if let id = period.companyID { Button("Abrir ficha de empresa") { openCompany(id) } }

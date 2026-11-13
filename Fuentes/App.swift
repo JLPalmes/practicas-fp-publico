@@ -43,17 +43,35 @@ struct Checklist: View {
                     updated.setCompletion(at: i, to: !updated[i].done)
                     items = updated
                 }
-                if step.done {
+                if step.done && step.title != studentPaperworkTitles[0] {
                     DatePicker("Fecha de cumplimiento", selection: Binding(
                         get: { items.first(where: { $0.id == step.id })?.date ?? step.date },
                         set: { date in
                             guard let i = items.firstIndex(where: { $0.id == step.id }) else { return }
                             var updated = items; updated[i].date = date; items = updated
                         }), displayedComponents: .date).labelsHidden().frame(width: 135)
-                } else { Text("Pendiente").foregroundStyle(.secondary).font(.caption).frame(width: 85, alignment: .trailing) }
+                }
             }.padding(8).frame(maxWidth: .infinity, alignment: .leading).background(accent.opacity(step.done ? 0.08 : 0.025)).clipShape(RoundedRectangle(cornerRadius: 7))
         }
         }
+    }
+}
+struct ContactFields: View {
+    @Binding var phone: String
+    @Binding var email: String
+
+    var body: some View {
+        FieldPair {
+            TextField("Teléfono", text: $phone)
+            TextField("Correo electrónico", text: $email)
+        }
+    }
+}
+struct FieldPair<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), alignment: .leading)], content: content)
     }
 }
 struct Notes: View {
@@ -193,7 +211,7 @@ struct RootView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Label("Prácticas FP", systemImage: "leaf.fill").font(.title2.bold()).foregroundStyle(accent).padding(.top, 6)
                 Text(store.db.institute).font(.caption).foregroundStyle(.secondary)
-                ForEach([("Alumnas","person.2"),("Empresas","building.2"),("Pendientes","checklist"),("Historial","archivebox"),("Tutores","person.crop.rectangle"),("Calendario","calendar"),("Ajustes y copias","gearshape")], id: \.0) { item in
+                ForEach([("Alumnas","person.2"),("Empresas","building.2"),("Tutores","person.crop.rectangle"),("Calendario","calendar"),("Ajustes y copias","gearshape")], id: \.0) { item in
                     Button { page = item.0; store.endEditingGroup() } label: {
                         Label(item.0, systemImage: item.1).frame(maxWidth: .infinity, alignment: .leading).padding(8)
                             .background(page == item.0 ? accent.opacity(0.14) : .clear).clipShape(RoundedRectangle(cornerRadius: 9))
@@ -239,8 +257,6 @@ struct RootView: View {
                 Divider()
                 switch page {
                 case "Alumnas", "Empresas", "Tutores": unifiedWorkspace
-                case "Pendientes": PendingTasksView(openStudent: { open("Alumnas", $0) }, openCompany: { open("Empresas", $0) })
-                case "Historial": CourseHistoryView()
                 case "Calendario": CalendarView()
                 default: settings
                 }
@@ -489,15 +505,21 @@ struct StudentEditor: View {
             }
             FoldableSection("student.data", "Datos de la alumna", initiallyExpanded: true) {
                 TextField("Nombre y apellidos", text: $s.name); TextField("Grupo", text: $s.group)
-                TextField("DNI / NIE", text: $s.dni); TextField("NUSS", text: $s.nuss)
-                TextField("Email", text: $s.email); TextField("Teléfono", text: $s.phone)
+                FieldPair {
+                    TextField("DNI / NIE", text: $s.dni)
+                    TextField("NUSS", text: $s.nuss)
+                }
+                ContactFields(phone: $s.phone, email: $s.email)
             }
             FoldableSection("student.preferences", s.assignment == "Definitiva" ? "Preferencias conservadas · referencia ante quejas" : "Preferencias para la asignación") {
                 TextField("Tipo de empresa", text: $s.preferredType); TextField("Zona de la ciudad", text: $s.preferredZone)
                 Notes(title: "Detalle de preferencias", text: $s.preferences)
             }
             FoldableSection("student.schedule", "Horario y previsión", initiallyExpanded: false) {
-                TextField("Horas objetivo", value: Binding(get: { s.requiredHours }, set: { s.targetHours = $0 }), format: .number)
+                FieldPair {
+                    TextField("Horas diarias iniciales", value: $s.hours, format: .number)
+                    TextField("Horas objetivo", value: Binding(get: { s.requiredHours }, set: { s.targetHours = $0 }), format: .number)
+                }
                 Text("Por defecto, 500 horas. Puedes ajustarlas para esta alumna.").font(.caption).foregroundStyle(.secondary)
                 Toggle("Fecha de inicio establecida", isOn: $s.hasStart)
                 if s.hasStart {
@@ -537,7 +559,15 @@ struct CompanyEditor: View {
     var openTutor: (UUID) -> Void
     var body: some View {
         Form {
-            FoldableSection("company.data", "Datos de la empresa", initiallyExpanded: true) { TextField("Nombre", text: $c.name); TextField("CIF", text: $c.cif); TextField("Dirección", text: $c.address); TextField("Persona de contacto", text: $c.contact); TextField("Teléfono", text: $c.phone); TextField("Email", text: $c.email) }
+            FoldableSection("company.data", "Datos de la empresa", initiallyExpanded: true) {
+                FieldPair {
+                    TextField("Empresa", text: $c.name)
+                    TextField("CIF", text: $c.cif)
+                }
+                TextField("Dirección", text: $c.address)
+                TextField("Persona de contacto", text: $c.contact)
+                ContactFields(phone: $c.phone, email: $c.email)
+            }
             FoldableSection("company.response", "Contacto y respuesta", initiallyExpanded: true) { CompanyResponseEditor(companyID: c.id) }
             FoldableSection("company.capacity", "Plazas ofrecidas", initiallyExpanded: true) {
                 Text(store.db.placesLabel(c)).font(.headline)
@@ -589,7 +619,7 @@ struct TutorEditor: View {
                 Picker("Empresa", selection: $t.companyID) { Text("Sin asignar").tag(nil as UUID?); ForEach(store.db.companies) { Text($0.name).tag(Optional($0.id)) } }
                     .disabled(!store.db.students(tutoredBy: t.id).isEmpty)
                 if let id = t.companyID { Button("Abrir ficha de empresa") { openCompany(id) } }
-                TextField("Teléfono", text: $t.phone); TextField("Email", text: $t.email)
+                ContactFields(phone: $t.phone, email: $t.email)
             }
             Section("Alumnas tutorizadas") { ForEach(store.db.students(tutoredBy: t.id)) { student in Button(student.name) { openStudent(student.id) } } }
             Section { Notes(text: $t.notes) }

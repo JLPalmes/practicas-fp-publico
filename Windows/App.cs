@@ -41,8 +41,8 @@ namespace PracticasFP {
         readonly Store store;
         readonly SplitContainer split=new SplitContainer();
         readonly ListView list=new ListView();
-        readonly FlowLayoutPanel tutorCards=new FlowLayoutPanel();
-        readonly Panel editor=new Panel();
+        readonly FlowLayoutPanel tutorCards=new BufferedFlow();
+        readonly Panel editor=new BufferedEditor();
         FlowLayoutPanel fields;
         readonly TextBox search=new TextBox();
         readonly ComboBox filter=new ComboBox();
@@ -55,7 +55,7 @@ namespace PracticasFP {
             store=value;
             fields=content;
             preferences=new ViewPreferences(store.Folder);
-            Text="Prácticas FP · Windows · 1.8.4-windows.3 (pruebas)";
+            Text="Prácticas FP · Windows · 1.8.4-windows.8 (pruebas)";
             MinimumSize=new Size(900,620);
             Size=new Size(1280,850);
             StartPosition=FormStartPosition.CenterScreen;
@@ -66,9 +66,9 @@ namespace PracticasFP {
             };
             Controls.Add(nav);
             string[] labels= {
-                "Alumnas","Empresas","Tutores","Calendario","Pendientes","Historial","Ajustes y copias"
+                "Alumnas","Empresas","Tutores","Calendario","Ajustes y copias"
             },keys= {
-                "students","companies","tutors","exclusions","pending","history","settings"
+                "students","companies","tutors","exclusions","settings"
             };
             for(int i=0;
             i<keys.Length;
@@ -108,7 +108,7 @@ namespace PracticasFP {
                 }
             };
             top.Controls.Add(filter);
-            AddButton(top,"Añadir",Add);
+            addButton=AddButton(top,"Añadir",Add);
             AddButton(top,"Importar CSV / Excel",Import);
             AddButton(top,"Informe…",Report);
             AddButton(top,"Deshacer",()=>Safe(()=> {
@@ -193,12 +193,14 @@ namespace PracticasFP {
                 }
             };
         }
-        void AddButton(Control panel,string title,Action action) {
+        Button addButton;
+        Button AddButton(Control panel,string title,Action action) {
             var b=new Button {
                 Text=title,AutoSize=true,Height=32,Margin=new Padding(3)
             };
             b.Click+=(s,e)=>Safe(action);
             panel.Controls.Add(b);
+            return b;
         }
         void Safe(Action action) {
             try {
@@ -228,7 +230,9 @@ namespace PracticasFP {
         }
         void Render() {
             rendering=true;
-            heading.Text=section=="students"?"Alumnas":section=="companies"?"Empresas":section=="tutors"?"Tutores":section=="exclusions"?"Calendario":section=="pending"?"Pendientes":section=="history"?"Historial":"Ajustes y copias";
+            heading.Text=section=="students"?"Alumnas":section=="companies"?"Empresas":section=="tutors"?"Tutores":section=="exclusions"?"Calendario":"Ajustes y copias";
+            addButton.Text=section=="exclusions"?"Añadir día o intervalo":"Añadir";
+            addButton.Visible=section!="settings";
             int savedFilter;
             filterSelections.TryGetValue(section,out savedFilter);
             filter.Items.Clear();
@@ -243,7 +247,7 @@ namespace PracticasFP {
             });
             filter.SelectedIndex=Math.Max(0,Math.Min(savedFilter,filter.Items.Count-1));
             rendering=false;
-            if(new[]{"students","companies","tutors"}.Contains(section))
+            if(new[]{"students","companies","tutors","exclusions"}.Contains(section))
                 selected=WorkspaceRules.Selection(Model.Items(store.Db,section).Select(x=>J.S(x,"id")),selected);
             RefreshList();
             RenderEditor();
@@ -323,6 +327,10 @@ namespace PracticasFP {
         void ClearEditor() {
             fields=content;
             titleCounts.Clear();
+            foreach(var field in textFields.Values) {
+                if(field.Input.Parent!=null)field.Input.Parent.Controls.Remove(field.Input);
+                if(field.Caption.Parent!=null)field.Caption.Parent.Controls.Remove(field.Caption);
+            }
             foreach(Control c in content.Controls.Cast<Control>().ToArray())c.Dispose();
             content.Controls.Clear();
         }
@@ -331,21 +339,38 @@ namespace PracticasFP {
                 Text=text,AutoSize=true,MaximumSize=new Size(530,0),Margin=new Padding(0,4,0,10)
             });
         }
+        sealed class TextFieldBinding {
+            public readonly Label Caption=new Label {AutoSize=true,Margin=new Padding(0,7,0,2)};
+            public readonly TextBox Input=new TextBox();
+            public Dictionary<string,object> Record;
+        }
+        readonly Dictionary<string,TextFieldBinding> textFields=new Dictionary<string,TextFieldBinding>();
+
         void TextField(Dictionary<string,object> obj,string key,string title,bool multiline=false) {
-            fields.Controls.Add(new Label {
-                Text=title,AutoSize=true,Margin=new Padding(0,7,0,2)
-            });
-            var t=new TextBox {
-                Text=J.S(obj,key),Width=FieldWidth,Tag=FieldTag(obj,key),Multiline=multiline,Height=multiline?75:28
-            };
-            t.Leave+=(s,e)=> {
-                if(t.Text==J.S(obj,key))return;
-                Safe(()=> {
-                    store.Change(()=>obj[key]=t.Text);
-                    RefreshList();
-                });
-            };
-            fields.Controls.Add(t);
+            string slot=section+"|"+fields.Tag+"|"+key;
+            TextFieldBinding binding;
+            if(!textFields.TryGetValue(slot,out binding)) {
+                binding=new TextFieldBinding();
+                textFields.Add(slot,binding);
+                binding.Input.Leave+=(s,e)=> {
+                    var record=binding.Record;
+                    string value=binding.Input.Text;
+                    if(value==J.S(record,key))return;
+                    Safe(()=> {
+                        store.Change(()=>record[key]=value);
+                        RefreshList();
+                    });
+                };
+            }
+            binding.Record=obj;
+            binding.Caption.Text=title;
+            binding.Input.Multiline=multiline;
+            binding.Input.Height=multiline?75:28;
+            binding.Input.Width=FieldWidth;
+            binding.Input.Tag=FieldTag(obj,key);
+            binding.Input.Text=J.S(obj,key);
+            fields.Controls.Add(binding.Caption);
+            fields.Controls.Add(binding.Input);
         }
         void Number(Dictionary<string,object> obj,string key,string title,decimal min,decimal max,int decimals=0,Action<decimal> custom=null,bool optional=false) {
             fields.Controls.Add(new Label {
@@ -393,10 +418,14 @@ namespace PracticasFP {
             };
             fields.Controls.Add(row);
         }
-        void Check(Dictionary<string,object> obj,string key,string title,Action<bool> custom=null,Action refresh=null) {
-            var c=new CheckBox {
-                Text=title,Tag=FieldTag(obj,key),Checked=J.B(obj,key),AutoSize=true,MaximumSize=new Size(520,0),Margin=new Padding(0,8,0,5)
-            };
+        CheckBox Check(Dictionary<string,object> obj,string key,string title,Action<bool> custom=null,Action refresh=null,bool documentStep=false) {
+            CheckBox c=documentStep?new DocumentCheckBox():new CheckBox();
+            c.Text=title;
+            c.Tag=FieldTag(obj,key);
+            c.Checked=J.B(obj,key);
+            c.AutoSize=!documentStep;
+            c.MaximumSize=new Size(520,0);
+            c.Margin=new Padding(0,8,0,5);
             c.CheckedChanged+=(s,e)=>Safe(()=> {
                 store.Change(()=> {
                     if(custom!=null)custom(c.Checked);
@@ -406,6 +435,7 @@ namespace PracticasFP {
                 if(refresh==null)RenderEditor();else refresh();
             });
             fields.Controls.Add(c);
+            return c;
         }
         void DateField(Dictionary<string,object> obj,string key,string title,bool optional=false,Action<object> custom=null) {
             var row=new FlowLayoutPanel {
@@ -476,14 +506,13 @@ namespace PracticasFP {
             rendering=true;
             ClearEditor();
             if(section=="settings")Settings();
-            else if(section=="history")History();
-            else if(section=="pending")Pending();
             else {
                 var o=Current();
                 if(section=="exclusions")CalendarSettings();
+                if(section=="exclusions")Title("Día o intervalo");
                 if(o==null) {
-                    Note(section=="tutors"?"Añade un tutor. Su ficha aparecerá aquí, junto al listado.":section=="companies"?"Añade una empresa. Su ficha aparecerá aquí, junto al listado.":"Añade una alumna. Su ficha aparecerá aquí, junto al listado.");
-                    AddButton(fields,section=="tutors"?"Añadir tutor":section=="companies"?"Añadir empresa":"Añadir alumna",Add);
+                    Note(section=="exclusions"?"Añade un día o intervalo al calendario.":section=="tutors"?"Añade un tutor. Su ficha aparecerá aquí, junto al listado.":section=="companies"?"Añade una empresa. Su ficha aparecerá aquí, junto al listado.":"Añade una alumna. Su ficha aparecerá aquí, junto al listado.");
+                    AddButton(fields,section=="exclusions"?"Añadir día o intervalo":section=="tutors"?"Añadir tutor":section=="companies"?"Añadir empresa":"Añadir alumna",Add);
                 }
                 else {
                     if(section=="students")Student(o);
@@ -494,9 +523,12 @@ namespace PracticasFP {
                         DateField(o,"from","Desde (incluido)");
                         DateField(o,"to","Hasta (incluido)");
                         TextField(o,"kind","Tipo");
+                        AddButton(fields,"Eliminar día o intervalo…",Delete);
                     }
-                    Title("Acciones de la ficha");
-                    AddButton(fields,"Eliminar…",Delete);
+                    else {
+                        Title("Acciones de la ficha");
+                        AddButton(fields,"Eliminar…",Delete);
+                    }
                 }
             }
             content.Enabled=!store.Blocked||section=="settings";
