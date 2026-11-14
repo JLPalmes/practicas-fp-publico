@@ -1,40 +1,11 @@
-name: Compilar y publicar Mac y Windows
+name: Compilar y publicar Prácticas FP para Windows
 on:
   push:
-    tags: ['v*']
+    tags: ['v2.*']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  mac:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validar y compilar
-        run: |
-          ./Validar.command
-          ./Compilar.command
-          codesign --verify --deep --strict PracticasFP.app
-          test "$(lipo -archs PracticasFP.app/Contents/MacOS/PracticasFP)" = arm64
-      - name: Preparar instalador
-        env:
-          REF_NAME: ${{ github.ref_name }}
-          REF_TYPE: ${{ github.ref_type }}
-        run: |
-          version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' PracticasFP.app/Contents/Info.plist)
-          if [ "$REF_TYPE" = tag ]; then test "${REF_NAME%%-publica.*}" = "v$version"; fi
-          mkdir -p dist/Mac/Contenido
-          cp -R PracticasFP.app dist/Mac/Contenido/
-          cp LICENSE AVISO-LICENCIA.txt dist/Mac/Contenido/
-          ln -s /Applications dist/Mac/Contenido/Aplicaciones
-          printf 'Arrastra PracticasFP.app a Aplicaciones. Cierra la versión anterior antes de reemplazarla. Los datos se conservan por separado.\n' > dist/Mac/Contenido/Instalación.txt
-          installer="dist/Mac/PracticasFP-$version-AppleSilicon-Instalador.dmg"
-          hdiutil create -volname "Prácticas FP $version · Apple Silicon" -srcfolder dist/Mac/Contenido -format UDZO "$installer"
-          hdiutil verify "$installer"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: instalador-mac
-          path: dist/Mac/*.dmg
   windows:
     runs-on: windows-latest
     steps:
@@ -56,7 +27,7 @@ jobs:
             dist/Windows/Windows-*.png
   publicar:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [mac, windows]
+    needs: windows
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -73,8 +44,8 @@ jobs:
         run: |
           version=${GITHUB_REF_NAME#v}
           version=${version%%-publica.*}
-          test -f "distribucion/PracticasFP-$version-AppleSilicon-Instalador.dmg"
+
           test -f "distribucion/Instalar-PracticasFP-$version-x64.exe"
           cp LICENSE AVISO-LICENCIA.txt distribucion/
-          (cd distribucion && sha256sum *.dmg *.exe LICENSE AVISO-LICENCIA.txt > SHA256SUMS.txt)
-          gh release create "$GITHUB_REF_NAME" distribucion/* --verify-tag --title "Prácticas FP $version" --notes-file NOTAS-PUBLICACION.md
+          (cd distribucion && sha256sum *.exe LICENSE AVISO-LICENCIA.txt > SHA256SUMS.txt)
+          gh release create "$GITHUB_REF_NAME" distribucion/* --verify-tag --latest --title "Prácticas FP $version" --notes-file NOTAS-PUBLICACION.md

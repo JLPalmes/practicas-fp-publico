@@ -6,28 +6,17 @@ Los datos se guardan localmente, sin cuentas ni servicios en la nube.
 
 ## Descargar e instalar
 
-Los instaladores están en [Versiones publicadas](https://github.com/JLPalmes/practicas-fp-publico/releases).
 
-| Sistema | Versión | Instalación |
-| --- | --- | --- |
-| Mac con Apple Silicon, macOS 14 o posterior | 1.8.5 | Abre el `.dmg` y arrastra Prácticas FP a Aplicaciones. |
-| Windows 10/11 de 64 bits | 1.8.5 | Ejecuta `Instalar-PracticasFP-…-x64.exe`. Requiere .NET Framework 4.8 recomendado. |
+La versión vigente es **Prácticas FP 2.0.0 para Windows x64**. Requiere Windows 10 u 11 y se recomienda .NET Framework 4.8.
 
-La edición Mac tiene firma local y no está notarizada. La edición Windows no
-lleva certificado de firma digital. Conserva una copia de tus datos antes de
-actualizar. Los instaladores no incluyen datos de alumnas ni empresas.
+[Descargar Prácticas FP 2](https://github.com/JLPalmes/practicas-fp-publico/releases/latest)
 
-Consulta la [guía de Mac](LEEME.md) y la [guía de Windows](Windows/LEEME.md).
-Ambas ediciones usan el formato de datos 4. Puedes exportar una copia y
-restaurarla en el otro equipo; no hay sincronización ni fusión de cambios.
-La verificación completa del intercambio de ida y vuelta sigue pendiente:
-conserva el original y comprueba los datos antes de continuar en otro equipo.
+Para recuperar datos anteriores, exporta una copia desde la versión 1 y restáurala en la 2. La versión 2 usa su propia carpeta de datos. Consulta la [guía de Windows](Windows/LEEME.md).
 
 ## Código y compilación
 
-- Mac: ejecuta `./Validar.command` y `./Compilar.command` con las herramientas de desarrollo de Apple y Python 3.
 - Windows: ejecuta `powershell -NoProfile -ExecutionPolicy Bypass -File Windows\Compilar.ps1`; compila y ejecuta las pruebas antes de generar el instalador.
-- La publicación automatizada compila ambas ediciones, ejecuta sus pruebas y adjunta los instaladores, la licencia y sus sumas SHA-256 a una versión de GitHub. El código fuente correspondiente se conserva en la etiqueta de esa publicación.
+- La publicación automatizada compila Windows, ejecuta las pruebas y adjunta el instalador, la licencia y sus sumas SHA-256 a una versión de GitHub. El código fuente correspondiente se conserva en la etiqueta de esa publicación.
 
 ## Licencia
 

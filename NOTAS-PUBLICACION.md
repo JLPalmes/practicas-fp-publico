@@ -1,13 +1,7 @@
-# Prácticas FP 1.8.5
+# Prácticas FP 2.0.0
 
-- **Mac**. Apple Silicon, macOS 14 o posterior. Abre el DMG y arrastra la aplicación a Aplicaciones. Firma local, sin notarización.
-- **Windows**. Windows 10/11 x64. Ejecuta el instalador. Se recomienda .NET Framework 4.8. El instalador carece de certificado de firma digital.
+Versión para Windows 10 y 11 x64 con instalación y datos propios. Se recomienda .NET Framework 4.8.
 
-Ambos instaladores se compilan desde la misma etiqueta después de validar sus respectivas plataformas.
+Cada alumna puede tener dos periodos, con empresa, asignación, horarios, objetivo de horas y documentos propios. El registro global reúne el objetivo general y los saldos de otros cursos. Las listas de empresas y alumnas muestran sus asignaciones y la rueda del ratón permite desplazarse sin cambiar los campos.
 
-- Los pasos de anexos y conciertos se marcan como realizados sin registrar una fecha nueva.
-- Las fichas agrupan los datos de contacto, identificación y horas en filas, según el ancho disponible.
-- En Windows, los rótulos de documentación admiten varias líneas, los seguimientos mensuales se agrupan y el calendario permite añadir y eliminar días o intervalos.
-- Pendientes e Historial de cursos salen de la navegación.
-
-Se adjuntan la licencia GNU AGPLv3, el aviso y las sumas SHA-256. El código fuente y las instrucciones de compilación están disponibles en esta publicación.
+Para trasladar datos desde la versión 1, restaura una copia y convierte las fichas desde la aplicación. Consulta la guía de Windows incluida en el código fuente.
