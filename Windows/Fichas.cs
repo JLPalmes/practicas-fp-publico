@@ -275,7 +275,7 @@ namespace PracticasFP {
         }
         void Settings() {
             Title("Datos y copias · Windows");
-            Note("Versión 2.0.0\nFormato de datos 5 para dos periodos. Admite restaurar copias anteriores.");
+            Note("Versión 2.0.1\nFormato de datos 5 para dos periodos. Admite restaurar copias anteriores.");
             if(store.Blocked)Note(store.Error);
             else {
                 TextField(store.Db,"institute","Centro");

@@ -22,7 +22,7 @@ static class Installer {
                 Text="Instalar Prácticas FP 2 para Windows",Size=new Size(590,310),StartPosition=FormStartPosition.CenterScreen,FormBorderStyle=FormBorderStyle.FixedDialog,MaximizeBox=false,Font=new Font("Segoe UI",10)
             }) {
                 var label=new Label {
-                    Left=22,Top=20,Width=535,Height=160,Text="Prácticas FP · 2.0.0\nWindows de 64 bits\n\nSe instalará para tu usuario en:\n"+Folder+"\n\nLos datos y copias se guardan por separado y se conservan al desinstalar."
+                    Left=22,Top=20,Width=535,Height=160,Text="Prácticas FP · 2.0.1\nWindows de 64 bits\n\nSe instalará para tu usuario en:\n"+Folder+"\n\nLos datos y copias se guardan por separado y se conservan al desinstalar."
                 };
                 var install=new Button {
                     Text="Instalar",Left=330,Top=205,Width=105,Height=35
@@ -98,7 +98,7 @@ static class Installer {
             foreach(string link in links)Shortcut(link,app);
             using(var k=Registry.CurrentUser.CreateSubKey(Key)) {
                 k.SetValue("DisplayName","Prácticas FP 2 para Windows");
-                k.SetValue("DisplayVersion","2.0.0");
+                k.SetValue("DisplayVersion","2.0.1");
                 k.SetValue("Publisher","Prácticas FP");
                 k.SetValue("InstallLocation",Folder);
                 k.SetValue("DisplayIcon",app);

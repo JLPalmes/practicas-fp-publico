@@ -1,4 +1,6 @@
-# Prácticas FP 2.0.0
+# Prácticas FP 2.0.1
+
+Nuevo icono para la aplicación, el instalador y los accesos directos de Windows.
 
 Versión para Windows 10 y 11 x64 con instalación y datos propios. Se recomienda .NET Framework 4.8.
 
