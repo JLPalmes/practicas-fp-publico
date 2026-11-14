@@ -41,6 +41,7 @@ static class Installer {
                         MessageBox.Show(f,"No se ha completado la instalación. Cierra Prácticas FP antes de volver a intentarlo.\n"+ex.Message,"Prácticas FP");
                     }
                 };
+                f.Icon=System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
                 f.Controls.Add(label);
                 f.Controls.Add(install);
                 f.Controls.Add(cancel);

@@ -10,7 +10,9 @@ $sources = @($sourceNames | ForEach-Object { Join-Path $PSScriptRoot $_ })
 $license = Join-Path $projectRoot 'LICENSE'
 $notice = Join-Path $projectRoot 'AVISO-LICENCIA.txt'
 $manifest = Join-Path $PSScriptRoot 'App.manifest'
-& $compiler /nologo /target:winexe /platform:x64 /optimize+ /utf8output "/win32manifest:$manifest" "/out:$output\PracticasFP.exe" $references "/resource:$license,LICENSE" "/resource:$notice,AVISO-LICENCIA.txt" $sources
+$icon = Join-Path $output 'PracticasFP.ico'
+& (Join-Path $PSScriptRoot 'CrearIcono.ps1') -OutputPath $icon
+& $compiler "/win32icon:$icon" /nologo /target:winexe /platform:x64 /optimize+ /utf8output "/win32manifest:$manifest" "/out:$output\PracticasFP.exe" $references "/resource:$license,LICENSE" "/resource:$notice,AVISO-LICENCIA.txt" $sources
 if ($LASTEXITCODE -ne 0) { throw 'No se ha compilado la aplicación.' }
 $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $output 'PracticasFP.exe')).ProductVersion
 if ($version -notmatch '^[0-9A-Za-z][0-9A-Za-z._-]*$') { throw 'La aplicación no tiene una versión válida para nombrar el instalador.' }
@@ -24,7 +26,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Han fallado las pruebas.' }
 if ($LASTEXITCODE -ne 0) { throw 'No se han compilado las pruebas de interfaz.' }
 & "$output\PruebasInterfaz.exe" $output
 if ($LASTEXITCODE -ne 0) { throw 'Han fallado las pruebas de interfaz.' }
-& $compiler /nologo /target:winexe /platform:x64 /optimize+ /utf8output "/win32manifest:$manifest" "/out:$installer" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:Microsoft.CSharp.dll "/resource:$output\PracticasFP.exe,PracticasFP.exe" "/resource:$license,LICENSE" "/resource:$notice,AVISO-LICENCIA.txt" (Join-Path $PSScriptRoot 'Instalador.cs') (Join-Path $PSScriptRoot 'Actualizacion.cs') (Join-Path $PSScriptRoot 'Version.cs')
+& $compiler "/win32icon:$icon" /nologo /target:winexe /platform:x64 /optimize+ /utf8output "/win32manifest:$manifest" "/out:$installer" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:Microsoft.CSharp.dll "/resource:$output\PracticasFP.exe,PracticasFP.exe" "/resource:$license,LICENSE" "/resource:$notice,AVISO-LICENCIA.txt" (Join-Path $PSScriptRoot 'Instalador.cs') (Join-Path $PSScriptRoot 'Actualizacion.cs') (Join-Path $PSScriptRoot 'Version.cs')
 if ($LASTEXITCODE -ne 0) { throw 'No se ha compilado el instalador.' }
 $installerVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($installer).ProductVersion
 if ($installerVersion -ne $version) { throw 'La versión del instalador no coincide con la aplicación.' }

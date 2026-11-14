@@ -52,6 +52,7 @@ namespace PracticasFP {
         bool rendering;
         readonly Dictionary<string,string> searches=new Dictionary<string,string>(),selections=new Dictionary<string,string>();
         public MainForm(Store value) {
+            Icon=System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             store=value;
             fields=content;
             preferences=new ViewPreferences(store.Folder);
