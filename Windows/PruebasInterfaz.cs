@@ -6,10 +6,19 @@ using System.Linq;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Collections.Generic;
 using PracticasFP;
 class UiTests {
+    [DllImport("user32.dll", CharSet=CharSet.Auto)]
+    static extern IntPtr SendMessage(IntPtr window,int message,IntPtr wParam,IntPtr lParam);
+
+    static void ScrollWheel(Control control) {
+        control.Focus();
+        SendMessage(control.Handle,0x020A,new IntPtr(120<<16),IntPtr.Zero);
+        Pump();
+    }
     static int checks;
     static void Check(bool value,string text) {
         if(!value)throw new Exception(text);
@@ -47,6 +56,9 @@ class UiTests {
             var later=Model.Student();later["name"]="Alumna del periodo posterior";
             J.EditArray(later,"shifts").Add(J.Obj("id",J.Id(),"from",J.Stamp(J.Today),"companyID",J.S(company,"id"),"tutorID",J.S(tutor,"id"),"hours",7.0));
             db["students"]=new List<object>{initial,later};db["companies"]=new List<object>{company};db["tutors"]=new List<object>{tutor,other};
+            Model.ConvertPeriods(initial,db);
+            Model.ConvertPeriods(later,db);
+            db["version"]=5;
             store.Db=db;
             using(var form=new MainForm(store)) {
                 form.Show();Pump();form.Size=new Size(900,620);Pump();
@@ -60,6 +72,19 @@ class UiTests {
                     Console.WriteLine("EXCESO "+control.GetType().Name+" tag="+control.Tag+" width="+control.Width+" right="+control.Right+" parent="+control.Parent.GetType().Name+" width="+control.Parent.ClientSize.Width);
                 Check(!editor.HorizontalScroll.Visible,"Ficha estrecha sin barra horizontal");
                 var content=Field<FlowLayoutPanel>(form,"content");
+                var number=All(content).OfType<NumericUpDown>().First();
+                Check(number.Controls.Cast<Control>().All(c=>c is TextBox||!c.Visible),"Los controles numéricos no muestran flechas");
+                decimal hours=number.Value;
+                ScrollWheel(number);
+                Check(number.Value==hours,"La rueda no cambia las horas con el campo enfocado");
+                var selector=All(content).OfType<ComboBox>().First(c=>c.Items.Count>1);
+                int choice=selector.SelectedIndex;
+                ScrollWheel(selector);
+                Check(selector.SelectedIndex==choice,"La rueda no cambia un desplegable cerrado");
+                var date=All(content).OfType<DateTimePicker>().First();
+                DateTime day=date.Value;
+                ScrollWheel(date);
+                Check(date.Value==day,"La rueda no cambia una fecha");
                 var contactRow=All(content).OfType<FlowLayoutPanel>().First(p=>p.Name=="contact");
                 Check(contactRow.Controls[0].Top==contactRow.Controls[1].Top,"Teléfono y correo comparten fila en la ficha de alumna");
                 foreach(string pair in new[]{"identification","hours"}) {
@@ -68,27 +93,29 @@ class UiTests {
                 }
                 var documentRow=All(content).OfType<FlowLayoutPanel>().First(p=>(string)p.Tag=="document-columns");
                 Check(documentRow.Controls[0].Top==documentRow.Controls[1].Top,"Los pasos de documentación se distribuyen en columnas");
-                var list=Field<ListView>(form,"list");
+                var cards=Field<FlowLayoutPanel>(form,"tutorCards");
+                Check(((Button)cards.Controls[0]).AccessibleName=="Alumna del periodo inicial · Empresa de prueba","El listado de alumnas muestra la empresa debajo del nombre");
                 var nameField=All(content).OfType<TextBox>().First(c=>(c.Tag as string??"").EndsWith("|name"));
-                list.Items[1].Selected=true;Pump();
+                ((Button)cards.Controls[1]).PerformClick();Pump();
                 Check(nameField==All(content).OfType<TextBox>().First(c=>(c.Tag as string??"").EndsWith("|name"))&&nameField.Text==J.S(later,"name"),"Cambiar de alumna reutiliza el campo y muestra el nombre correcto");
-                nameField.Focus();nameField.Text="Nombre editado en segunda ficha";list.Focus();Pump();
+                nameField.Focus();nameField.Text="Nombre editado en segunda ficha";form.ActiveControl=null;Pump();
                 Check(J.S(later,"name")=="Nombre editado en segunda ficha"&&J.S(initial,"name")=="Alumna del periodo inicial","El campo reutilizado guarda en la ficha correcta");
-                nameField.Focus();nameField.Text="Alumna del periodo posterior";list.Focus();Pump();
-                list.Items[0].Selected=true;Pump();
+                nameField.Focus();nameField.Text="Alumna del periodo posterior";form.ActiveControl=null;Pump();
+                ((Button)cards.Controls[0]).PerformClick();Pump();
                 var annexHeader=All(content).OfType<Button>().First(b=>b.AccessibleName=="Anexo I · asignación de tutor");
                 annexHeader.PerformClick();Pump();
-                list.Items[1].Selected=true;Pump();
+                ((Button)cards.Controls[1]).PerformClick();Pump();
                 annexHeader=All(content).OfType<Button>().First(b=>b.AccessibleName=="Anexo I · asignación de tutor");
-                var annexBody=content.Controls[content.Controls.IndexOf(annexHeader)+1];
+                var annexBody=annexHeader.Parent.Controls[annexHeader.Parent.Controls.IndexOf(annexHeader)+1];
                 Check(annexBody.Controls.Count==0,"El anexo plegado no crea controles al cambiar de ficha");
                 annexHeader.PerformClick();Pump();
                 Check(annexBody.Controls.Count>0,"Al desplegar el anexo se crean sus controles");
-                list.Items[0].Selected=true;Pump();
+                ((Button)cards.Controls[0]).PerformClick();Pump();
                 var milestone=All(content).OfType<CheckBox>().First(c=>(c.Tag as string??"").Contains("annexI|generated"));
                 milestone.Checked=true;Pump();
-                Check(Model.Done(Model.Flow(initial,"annexI"),"generated"),"Los hitos en filas guardan su estado");
-                var generated=Model.Items(Model.Flow(initial,"annexI"),"milestones").First(m=>J.S(m,"id")=="generated");
+                var firstPeriod=Model.PeriodOwners(initial).First();
+                Check(Model.Done(Model.Flow(firstPeriod,"annexI"),"generated"),"Los hitos se guardan en el periodo correspondiente");
+                var generated=Model.Items(Model.Flow(firstPeriod,"annexI"),"milestones").First(m=>J.S(m,"id")=="generated");
                 Check(J.Get(generated,"date")==null,"Marcar un hito no registra una fecha");
                 Check(!Field<Panel>(form,"editor").HorizontalScroll.Visible,"Los hitos realizados mantienen la ficha sin barra horizontal");
                 var header=All(content).OfType<Button>().First(b=>b.Name=="section-toggle");
@@ -97,7 +124,6 @@ class UiTests {
                 bool before=body.Visible;header.PerformClick();Pump();
                 Check(body.Visible!=before,"Pulsar la cabecera pliega la sección");header.PerformClick();Pump();
                 Invoke(form,"Navigate","tutors");
-                var cards=Field<FlowLayoutPanel>(form,"tutorCards");
                 var rows=cards.Controls.OfType<TutorListButton>().ToArray();
                 Check(rows.Length==2&&rows[0].AccessibleName.Contains("Empresa de prueba")&&rows[0].AccessibleName.Contains("Alumna del periodo posterior"),"Tutor muestra empresa y alumnas de ambos periodos");
                 rows[1].PerformClick();Pump();Check(Field<string>(form,"selected")==J.S(other,"id"),"Seleccionar otro tutor actualiza la ficha");
@@ -109,6 +135,7 @@ class UiTests {
                 Check(cards.Controls.OfType<TutorListButton>().Count()==1,"Buscar una alumna encuentra su tutor");search.Text="";Pump();
                 Invoke(form,"Navigate","companies");
                 Check(Field<string>(form,"selected")==J.S(company,"id"),"Empresas abre automáticamente su primera ficha");
+                Check(((Button)cards.Controls[0]).AccessibleName=="Empresa de prueba · Alumna del periodo inicial · Alumna del periodo posterior","El listado de empresas incluye alumnas de ambos periodos");
                 var companyRow=All(content).OfType<FlowLayoutPanel>().First(p=>p.Name=="company");
                 Check(companyRow.Controls[0].Top==companyRow.Controls[1].Top,"Empresa y CIF comparten fila");
                 Snapshot(form,output,"empresas-estrecha");

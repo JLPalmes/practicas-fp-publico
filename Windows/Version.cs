@@ -2,4 +2,4 @@
 // Copyright (C) 2026 Juan Luis (JLPalmes)
 using System.Reflection;
 using System.Runtime.InteropServices;
-[assembly: AssemblyTitle("Prácticas FP para Windows")] [assembly: AssemblyDescription("Edición de pruebas para Windows; datos compatibles con Prácticas FP 1.8.5")] [assembly: AssemblyProduct("Prácticas FP")] [assembly: AssemblyVersion("1.8.5.0")] [assembly: AssemblyFileVersion("1.8.5.0")] [assembly: AssemblyInformationalVersion("1.8.5")] [assembly: ComVisible(false)]
+[assembly: AssemblyTitle("Prácticas FP para Windows")] [assembly: AssemblyDescription("Prácticas FP 2 para Windows")] [assembly: AssemblyProduct("Prácticas FP")] [assembly: AssemblyVersion("2.0.0.0")] [assembly: AssemblyFileVersion("2.0.0.0")] [assembly: AssemblyInformationalVersion("2.0.0")] [assembly: ComVisible(false)]

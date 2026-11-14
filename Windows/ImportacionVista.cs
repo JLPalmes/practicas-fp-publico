@@ -14,8 +14,8 @@ namespace PracticasFP {
     public class ImportForm:Form {
         readonly List<Sheet> sheets;
         readonly object db;
-        readonly ComboBox sheet=new ComboBox();
-        readonly NumericUpDown header=new NumericUpDown();
+        readonly ComboBox sheet=new ChoiceField();
+        readonly NumericUpDown header=new NumberField();
         readonly DataGridView grid=new DataGridView();
         readonly FlowLayoutPanel mappings=new FlowLayoutPanel();
         readonly List<ComboBox> map=new List<ComboBox>();
@@ -114,7 +114,7 @@ namespace PracticasFP {
                 panel.Controls.Add(new Label {
                     Text=s.Rows[h][i],Width=170,Height=24
                 });
-                var c=new ComboBox {
+                var c=new ChoiceField {
                     DropDownStyle=ComboBoxStyle.DropDownList,Width=170
                 };
                 c.Items.AddRange(Importer.Titles);

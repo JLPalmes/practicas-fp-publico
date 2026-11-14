@@ -9,8 +9,8 @@ using Microsoft.Win32;
 using System.Linq;
 using System.Collections.Generic;
 static class Installer {
-    static readonly string Folder=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","PracticasFP");
-    const string Key="Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PracticasFP";
+    static readonly string Folder=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","PracticasFP2");
+    const string Key="Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PracticasFP2";
     [STAThread] static void Main(string[] args) {
         Application.EnableVisualStyles();
         try {
@@ -19,10 +19,10 @@ static class Installer {
                 return;
             }
             using(var f=new Form {
-                Text="Instalar Prácticas FP para Windows",Size=new Size(590,310),StartPosition=FormStartPosition.CenterScreen,FormBorderStyle=FormBorderStyle.FixedDialog,MaximizeBox=false,Font=new Font("Segoe UI",10)
+                Text="Instalar Prácticas FP 2 para Windows",Size=new Size(590,310),StartPosition=FormStartPosition.CenterScreen,FormBorderStyle=FormBorderStyle.FixedDialog,MaximizeBox=false,Font=new Font("Segoe UI",10)
             }) {
                 var label=new Label {
-                    Left=22,Top=20,Width=535,Height=160,Text="Prácticas FP · 1.8.5\nVersión de pruebas para Windows de 64 bits\n\nSe instalará para tu usuario en:\n"+Folder+"\n\nLos datos y copias se guardan por separado y se conservan al desinstalar."
+                    Left=22,Top=20,Width=535,Height=160,Text="Prácticas FP · 2.0.0\nWindows de 64 bits\n\nSe instalará para tu usuario en:\n"+Folder+"\n\nLos datos y copias se guardan por separado y se conservan al desinstalar."
                 };
                 var install=new Button {
                     Text="Instalar",Left=330,Top=205,Width=105,Height=35
@@ -62,7 +62,7 @@ static class Installer {
     }
     static string Menu {
         get {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),"Prácticas FP");
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),"Prácticas FP 2");
         }
     }
     static void Install() {
@@ -75,7 +75,7 @@ static class Installer {
         }
         payload["Desinstalar.exe"]=File.ReadAllBytes(Assembly.GetExecutingAssembly().Location);
         var links=new[] {
-            Path.Combine(Menu,"Prácticas FP.lnk"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"Prácticas FP.lnk")
+            Path.Combine(Menu,"Prácticas FP 2.lnk"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"Prácticas FP 2.lnk")
         };
         var oldLinks=links.ToDictionary(x=>x,x=>File.Exists(x)?File.ReadAllBytes(x):null);
         var oldRegistry=new Dictionary<string,object>();
@@ -96,8 +96,8 @@ static class Installer {
             Directory.CreateDirectory(Menu);
             foreach(string link in links)Shortcut(link,app);
             using(var k=Registry.CurrentUser.CreateSubKey(Key)) {
-                k.SetValue("DisplayName","Prácticas FP para Windows");
-                k.SetValue("DisplayVersion","1.8.5");
+                k.SetValue("DisplayName","Prácticas FP 2 para Windows");
+                k.SetValue("DisplayVersion","2.0.0");
                 k.SetValue("Publisher","Prácticas FP");
                 k.SetValue("InstallLocation",Folder);
                 k.SetValue("DisplayIcon",app);
@@ -129,10 +129,10 @@ static class Installer {
         }
         if(Directory.Exists(previous)&&Directory.GetFileSystemEntries(previous).Length==0)Directory.Delete(previous);
         foreach(string link in new[] {
-            Path.Combine(Menu,"Prácticas FP.lnk"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"Prácticas FP.lnk")
+            Path.Combine(Menu,"Prácticas FP 2.lnk"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"Prácticas FP 2.lnk")
         })if(File.Exists(link))File.Delete(link);
         if(Directory.Exists(Menu)&&Directory.GetFileSystemEntries(Menu).Length==0)Directory.Delete(Menu);
         Registry.CurrentUser.DeleteSubKeyTree(Key,false);
-        MessageBox.Show("Aplicación desinstalada. Los datos se conservan en la carpeta PracticasFP de tus datos locales. Puedes eliminar el archivo Desinstalar.exe restante cuando cierres esta ventana.","Prácticas FP");
+        MessageBox.Show("Aplicación desinstalada. Los datos se conservan en la carpeta PracticasFP2 de tus datos locales. Puedes eliminar el archivo Desinstalar.exe restante cuando cierres esta ventana.","Prácticas FP");
     }
 }

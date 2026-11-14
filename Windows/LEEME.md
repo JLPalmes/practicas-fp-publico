@@ -1,10 +1,10 @@
-# Prácticas FP para Windows · edición de pruebas
+# Prácticas FP para Windows
 
-Versión **1.8.5** para Windows.
+Versión **2.0.0** para Windows.
 
 ## Instalar y probar
 
-1. Ejecuta `dist\Windows\Instalar-PracticasFP-1.8.5-x64.exe`.
+1. Ejecuta `dist\Windows\Instalar-PracticasFP-2.0.0-x64.exe`.
 2. Pulsa **Instalar**. No requiere permisos de administrador y no abre la aplicación automáticamente.
 3. Abre **Prácticas FP** desde el escritorio o el menú Inicio.
 4. Prueba primero con fichas ficticias. Para usar una copia de Mac, ve a **Ajustes y copias → Restaurar copia de Windows o Mac…**. Antes de sustituir datos se muestra un resumen y se conserva una copia previa.
@@ -26,11 +26,13 @@ Destinada a Windows 10/11 de **64 bits**, con .NET Framework (4.8 recomendado). 
 
 ## Datos y compatibilidad
 
-- Datos: `%LOCALAPPDATA%\PracticasFP\Datos\datos.json`.
-- Copias: `%LOCALAPPDATA%\PracticasFP\Datos\Copias`.
-- Aplicación: `%LOCALAPPDATA%\Programs\PracticasFP`.
+- Datos: `%LOCALAPPDATA%\PracticasFP2\Datos\datos.json`.
+- Copias: `%LOCALAPPDATA%\PracticasFP2\Datos\Copias`.
+- Aplicación: `%LOCALAPPDATA%\Programs\PracticasFP2`.
 
-Lee formatos 1, 2, 3 y 4 y escribe el formato 4 de Mac. Conserva los campos desconocidos, los identificadores como texto, las fechas numéricas de Swift y las instantáneas de cursos en base64. Las fechas se interpretan en la zona de Canarias, independientemente de la zona del ordenador.
+El instalador y los accesos directos de Prácticas FP 2 son independientes de la edición 1.8.5. Para probar datos anteriores, exporta una copia desde esa edición y restáurala en la nueva. Cada ficha antigua ofrece **Convertir ficha a dos periodos** y guarda una copia previa. Las fichas con más de dos periodos requieren revisión. El formato 5 de las fichas convertidas se abre con la versión 2.
+
+Cada alumna tiene un primer periodo y un segundo opcional. Cada periodo activo requiere empresa para calcular su previsión y confirmar la asignación. Tiene su propio objetivo, jornada, fechas, cambios de jornada y documentos. El registro global muestra el objetivo general, las horas del curso anterior, la previsión del curso y las horas que se anotan para el siguiente curso. El cálculo descuenta del objetivo general las horas del curso anterior y la previsión acumulada hasta ayer.
 
 Los datos y copias no se suben a servicios externos. Para trasladarlos entre equipos, exporta una copia y restáurala en el otro. No hay sincronización simultánea ni fusión de cambios. Una segunda instancia no puede abrir la misma carpeta de datos. Un archivo ilegible bloquea las modificaciones para proteger el original.
 
@@ -51,7 +53,7 @@ Los filtros todavía no muestran contadores. Deshacer registra cada campo al aba
 
 Cierra Prácticas FP antes de ejecutar el instalador nuevo. Se verifican los dos ejecutables antes de sustituirlos. Si falla la actualización, se intenta recuperar ambos archivos y deshacer los cambios en accesos directos y registro de la aplicación. Si la recuperación tampoco puede completarse, el mensaje indica dónde se conservan los respaldos; no los elimines.
 
-Una actualización completada conserva los ejecutables anteriores en `%LOCALAPPDATA%\Programs\PracticasFP\VersionAnterior`. Para volver manualmente a la aplicación anterior, ciérrala y copia `VersionAnterior\PracticasFP.exe` sobre el de la carpeta principal. Esta versión mantiene el formato de datos, por lo que no requiere una migración para volver a windows.1. Antes de otra actualización conserva aparte esa copia si quieres retener más de una versión anterior.
+Una actualización de Prácticas FP 2 conserva sus ejecutables anteriores en `%LOCALAPPDATA%\Programs\PracticasFP2\VersionAnterior`. La edición 1.8.5 se abre desde su propio acceso directo y usa su carpeta de datos original.
 
 Si se interrumpe el reemplazo de archivos, el siguiente intento de instalación recupera esos archivos antes de volver a actualizar. Los datos de alumnas, empresas y copias quedan fuera de la carpeta de instalación y no se modifican. La recuperación se ha probado con archivos ficticios y fallos simulados; el instalador real no se ha ejecutado en esta revisión.
 

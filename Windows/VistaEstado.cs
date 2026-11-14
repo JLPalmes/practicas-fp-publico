@@ -27,7 +27,9 @@ namespace PracticasFP {
 
     public sealed class TutorListButton: Button {
         readonly string[] lines;
-        public TutorListButton(string[] value) {
+        readonly bool dimCompany;
+        public TutorListButton(string[] value,bool dimCompany) {
+            this.dimCompany=dimCompany;
             lines=value;FlatStyle=FlatStyle.Flat;FlatAppearance.BorderSize=0;
             AccessibleName=string.Join(" · ",lines);Text="";TextAlign=ContentAlignment.TopLeft;
         }
@@ -42,7 +44,7 @@ namespace PracticasFP {
             using(var bold=new Font(Font,FontStyle.Bold))for(int i=0;i<lines.Length;i++) {
                 var font=i==0?bold:Font;
                 int h=TextRenderer.MeasureText(lines[i],font,new Size(Math.Max(80,Width-16),int.MaxValue),TextFormatFlags.WordBreak).Height;
-                TextRenderer.DrawText(e.Graphics,lines[i],font,new Rectangle(8,y,Math.Max(80,Width-16),h),i==1?Color.DimGray:ForeColor,TextFormatFlags.WordBreak);
+                TextRenderer.DrawText(e.Graphics,lines[i],font,new Rectangle(8,y,Math.Max(80,Width-16),h),dimCompany&&i==1?Color.DimGray:ForeColor,TextFormatFlags.WordBreak);
                 y+=h+2;
             }
         }
@@ -114,7 +116,7 @@ namespace PracticasFP {
             var o=Current();
             string name=o==null?heading.Text:J.S(o,section=="exclusions"?"title":"name");
             pinned.Text=string.IsNullOrWhiteSpace(name)?"Ficha sin nombre":name;
-            if(section=="students"&&o!=null)pinned.Text+=" · "+J.S(o,"assignment");
+            if(section=="students"&&o!=null)pinned.Text+=" · "+Model.AssignmentSummary(o);
             if(section=="tutors"&&o!=null)pinned.Text+=" · "+Model.Name(store.Db,"companies",J.S(o,"companyID"));
         }
         void ApplyWidth() {
@@ -176,13 +178,21 @@ namespace PracticasFP {
                 if(card!=null)card.Height=card.HeightFor(width);
             }
         }
-        void RefreshTutorCards() {
+        readonly Dictionary<string,int> cardOffsets=new Dictionary<string,int>();
+        void RefreshCards() {
             int offset=Math.Max(0,-tutorCards.AutoScrollPosition.Y);
+            if(restoreListPosition)cardOffsets.TryGetValue(section,out offset);
+            restoreListPosition=false;
             tutorCards.SuspendLayout();
             foreach(Control item in tutorCards.Controls.Cast<Control>().ToArray())item.Dispose();
-            foreach(var tutor in Model.Items(store.Db,"tutors").Where(t=>WorkspaceRules.TutorMatches(store.Db,t,search.Text))) {
-                string id=J.S(tutor,"id");
-                var card=new TutorListButton(WorkspaceRules.TutorLines(store.Db,tutor)) {
+            string query=Importer.Key(search.Text);
+            foreach(var record in Model.Items(store.Db,section)) {
+                string id=J.S(record,"id");
+                if(section=="students"&&!StudentFilter(record)||section=="companies"&&!CompanyFilter(record))continue;
+                string[] lines=section=="tutors"?WorkspaceRules.TutorLines(store.Db,record):
+                    section=="companies"?WorkspaceRules.CompanyLines(store.Db,record):WorkspaceRules.StudentLines(store.Db,record);
+                if(!Importer.Key(string.Join(" ",lines)+" "+J.S(record,"dni")+" "+J.S(record,"group")).Contains(query))continue;
+                var card=new TutorListButton(lines,section=="tutors") {
                     Name="tutor-card",Tag=id,Font=Font,Margin=new Padding(0,0,0,4),BackColor=id==selected?Color.FromArgb(209,229,226):Color.White
                 };
                 card.Click+=(s,e)=> {

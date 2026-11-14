@@ -18,6 +18,7 @@ namespace PracticasFP {
                 TextField(o,"group","Grupo");
                 FieldPair("identification",()=>TextField(o,"dni","DNI / NIE"),()=>TextField(o,"nuss","NUSS"));
                 PhoneAndEmail(o);
+                PracticeStep(o,0);
                 var warnings=new List<string>();
                 if(J.S(o,"name").Trim()=="")warnings.Add("Completa el nombre.");
                 if(Model.Items(store.Db,"students").Any(x=>J.S(x,"id")!=J.S(o,"id")&&Importer.Identity(x).Overlaps(Importer.Identity(o))))warnings.Add("Posible ficha duplicada: revisa nombre, DNI, NUSS y correo.");
@@ -32,80 +33,107 @@ namespace PracticasFP {
                 TextField(o,"preferences","Detalle de preferencias",true);
                 TextField(o,"notes","Observaciones",true);
             });
-            Title("Horario y previsión",()=> {
-                Check(o,"hasStart","Fecha de inicio establecida");
-                DateField(o,"start","Inicio");
-                FieldPair("hours",()=>Number(o,"hours","Horas diarias iniciales",0,24,2),
-                    ()=>Number(o,"targetHours","Horas objetivo",0,10000,2));
-                Check(o,"manualEnd","Ajustar fecha final manualmente");
-                if(J.B(o,"manualEnd"))DateField(o,"end","Fin manual");
-                var calc=store.Queries.Calculate(o);
-                Note(calc.Error??(calc.End.HasValue?"Fin calculado: "+J.Text(calc.End.Value)+" · Última jornada: "+calc.Last.ToString("0.##")+" h\nPrevisión hasta ayer: "+calc.Elapsed.ToString("0.##")+" h / "+J.N(o,"targetHours",500)+(J.B(o,"manualEnd")?"\nHoras hasta el fin manual: "+calc.Manual.ToString("0.##"):""):"Indica el inicio para calcular la previsión."));
-                if(calc.End.HasValue&&(J.Date(o,"start")<J.Date(store.Db,"calendarFrom")||calc.End.Value>J.Date(store.Db,"calendarTo")))Note("La previsión sale del calendario revisado.");
-                if(!J.B(store.Db,"instituteDaysConfirmed"))Note("Previsión provisional: faltan los días del instituto.");
-                Select(o,"assignment","Asignación",new List<Choice> {
-                    new Choice("Pendiente","Pendiente"),new Choice("Provisional","Provisional"),new Choice("Definitiva","Definitiva")
-                });
-            });
-            Title("Práctica inicial",()=> {
-                Assignment(o,o);
-                Paperwork(o,true);
-            });
-            Documents(o,"annexI");
-            Documents(o,"annexII");
-            foreach(var shift in Model.Items(o,"shifts").OrderBy(x=>J.Date(x,"from")).ToList()) {
-                Title(J.S(shift,"companyID")==""?"Cambio de jornada":"Práctica posterior");
-                DateField(shift,"from","Desde");
-                Number(shift,"hours","Horas diarias (completar)",0,24,2,null,true);
-                Assignment(o,shift);
-                if(J.S(shift,"companyID")!="") {
-                    Paperwork(shift,false);
-                    Documents(shift,"annexI");
-                    Documents(shift,"annexII");
-                }
-                var local=shift;
-                AddButton(fields,"Eliminar este periodo…",()=> {
-                    if(Confirm("¿Eliminar este periodo y sus documentos?")) {
-                        store.Change(()=>J.EditArray(o,"shifts").Remove(local));
+            if(!Model.HasTwoPeriods(o)) {
+                Title("Ficha de la versión anterior",()=> {
+                    Note("Convierte esta ficha para editar los dos periodos. La instalación anterior conserva su propia copia.");
+                    AddButton(fields,"Convertir ficha a dos periodos",()=> {
+                        store.Backup();
+                        store.Change(()=> {
+                            Model.ConvertPeriods(o,store.Db);
+                            store.Db["version"]=5;
+                        });
                         Render();
-                    }
+                    });
                 });
+                return;
             }
-            Title("Añadir periodos");
-            AddButton(fields,"Añadir periodo / cambio de jornada",()=> {
-                store.Change(()=>J.EditArray(o,"shifts").Add(J.Obj("id",J.Id(),"from",J.Stamp(J.Today))));
-                RenderEditor();
+            Title("Registro global de horas",()=> {
+                FieldPair("global-hours",()=>Number(o,"targetHours","Objetivo general",0.01m,10000,2),
+                    ()=>Number(o,"previousCourseHours","Horas del curso anterior",0,10000,2));
+                FieldPair("course-balance",()=>Number(o,"nextCourseHours","Horas para el curso siguiente",0,10000,2),
+                    ()=> {
+                        var forecast=store.Queries.Calculate(o);
+                        Note("Previstas hasta ayer en este curso: "+forecast.Elapsed.ToString("0.##")+" h");
+                        Note("Restantes del objetivo general: "+Model.RemainingHours(o,forecast.Elapsed).ToString("0.##")+" h");
+                    });
+            });
+            var periods=Model.Items(o,"practicePeriods").ToList();
+            PracticePeriod(o,periods[0],"Primer periodo",true);
+            PracticePeriod(o,periods[1],"Segundo periodo",false);
+        }
+        void PracticePeriod(Dictionary<string,object> student,Dictionary<string,object> period,string title,bool first) {
+            Title(title,()=> {
+                var panel=fields;
+                if(!first)Check(period,"active","Realizar segundo periodo");
+                if(!J.B(period,"active"))return;
+
+                FieldPair("assignment",()=> {
+                    var companies=Choices("companies").Where(choice=>choice.Id!="").ToList();
+                    companies.Insert(0,new Choice("","Selecciona una empresa"));
+                    Select(period,"companyID","Empresa",companies,id=> {
+                        if(id=="")throw new InvalidOperationException("Selecciona una empresa para este periodo.");
+                        Model.Assign(store.Db,student,period,id);
+                    });
+                },()=> {
+                    string company=J.S(period,"companyID");
+                    if(company!="")Select(period,"tutorID","Tutor de empresa",Choices("tutors",company));
+                });
+                Select(period,"assignment","Estado de la asignación",new List<Choice> {
+                    new Choice("Pendiente","Pendiente"),new Choice("Provisional","Provisional"),new Choice("Definitiva","Definitiva")
+                },id=> {
+                    if(id!="Pendiente"&&Model.Find(store.Db,"companies",J.S(period,"companyID"))==null)
+                        throw new InvalidOperationException("Asigna una empresa a este periodo antes de confirmar.");
+                    period["assignment"]=id;
+                },Model.PeriodAssignment(student,period));
+                Check(period,"hasStart","Fecha de inicio establecida");
+                FieldPair("dates",()=>DateField(period,"start","Inicio",custom:value=>period["start"]=value,refreshEditor:true),
+                    ()=> {
+                        Check(period,"manualEnd","Fijar fin manual");
+                        if(J.B(period,"manualEnd"))DateField(period,"end","Fin manual",refreshEditor:true);
+                    });
+                FieldPair("practice-state",()=>PracticeStep(period,5),()=>PracticeStep(period,6));
+                FieldPair("hours",()=>Number(period,"hours","Horas diarias iniciales",0.01m,24,2),
+                    ()=>Number(period,"targetHours","Horas objetivo del periodo",0,10000,2));
+                var item=store.Queries.Periods(student).First(p=>Object.ReferenceEquals(p.Owner,period));
+                var forecast=item.Result;
+                if(forecast.Error!=null)Note(forecast.Error);
+                else if(item.End.HasValue) {
+                    Note("Final: "+J.Text(item.End.Value)+" · Previstas hasta ayer: "+forecast.Elapsed.ToString("0.##")+" h"+
+                        (J.B(period,"manualEnd")?" · Horas hasta el fin manual: "+forecast.Manual.ToString("0.##")+" h":" · Última jornada: "+forecast.Last.ToString("0.##")+" h"));
+                    if(item.Start<J.Date(store.Db,"calendarFrom")||item.End.Value>J.Date(store.Db,"calendarTo"))Note("El periodo sale del calendario revisado.");
+                }
+                else Note("Establece el inicio para calcular las horas del periodo.");
+                if(!J.B(store.Db,"instituteDaysConfirmed"))Note("Previsión provisional: faltan los días del instituto.");
+
+                foreach(var change in Model.Items(period,"shifts").OrderBy(x=>J.Date(x,"from")).ToList()) {
+                    FieldPair("shift-"+J.S(change,"id"),()=>DateField(change,"from","Cambio desde",refreshEditor:true),
+                        ()=>Number(change,"hours","Nuevas horas diarias",0.01m,24,2));
+                    AddButton(fields,"Quitar cambio de jornada",()=> {
+                        store.Change(()=>J.EditArray(period,"shifts").Remove(change));
+                        Render();
+                    });
+                }
+                AddButton(fields,"Añadir cambio de jornada",()=> {
+                    var changes=Model.Items(period,"shifts").Select(x=>J.Date(x,"from"));
+                    var date=changes.Concat(new[]{J.Date(period,"start")}).Max().AddDays(1);
+                    store.Change(()=>J.EditArray(period,"shifts").Add(J.Obj("id",J.Id(),"from",J.Stamp(date),"hours",J.N(period,"hours",7))));
+                    Render();
+                });
+                Documents(period,"annexI",panel);
+                Documents(period,"annexII",panel);
             });
         }
-        void Assignment(Dictionary<string,object> student,Dictionary<string,object> owner) {
-            Select(owner,"companyID","Empresa (sin asignar = continúa la anterior en cambios)",Choices("companies"),id=>Model.Assign(store.Db,student,owner,id));
-            string company=J.S(owner,"companyID");
-            if(company!="") {
-                Link("companies",company,"Abrir empresa");
-                Select(owner,"tutorID","Tutor de empresa",Choices("tutors",company));
-                Link("tutors",J.S(owner,"tutorID"),"Abrir tutor");
-            }
+        void PracticeStep(Dictionary<string,object> owner,int index) {
+            var step=J.D(J.A(owner,"paperwork")[index]);
+            Check(step,"done",J.S(step,"title"),value=> {
+                step["done"]=value;
+                if(value&&index!=0)step["date"]=J.Stamp(J.Today);
+            });
+            if(index!=0&&J.B(step,"done"))DateField(step,"date","Fecha");
         }
-        void Paperwork(Dictionary<string,object> o,bool certificate) {
-            var a=J.Get(o,"paperwork")==null?Model.Steps():J.A(o,"paperwork");
-            foreach(int i in certificate?new[] {
-                0,5,6
-            }
-            :new[] {
-                5,6
-            }) {
-                var step=J.D(a[i]);
-                Check(step,"done",J.S(step,"title"),value=> {
-                    if(J.Get(o,"paperwork")==null)o["paperwork"]=a;
-                    step["done"]=value;
-                    if(value)step["date"]=J.Stamp(J.Today);
-                });
-                if(i!=0&&J.B(step,"done"))DateField(step,"date","Fecha");
-            }
-        }
-        void Documents(Dictionary<string,object> o,string kind) {
+        void Documents(Dictionary<string,object> o,string kind,FlowLayoutPanel parent=null) {
             Title(kind=="annexI"?"Anexo I · asignación de tutor":kind=="annexII"?"Anexo II · calificación final":"Concierto de colaboración",
-                ()=>DocumentFields(o,kind,fields));
+                ()=>DocumentFields(o,kind,fields),parent);
         }
         void DocumentFields(Dictionary<string,object> o,string kind,FlowLayoutPanel group) {
             var flow=Model.Flow(o,kind);
@@ -152,7 +180,7 @@ namespace PracticasFP {
             });
             Documents(o,"agreement");
             Title("Alumnas vinculadas",()=> {
-                foreach(var s in Model.Items(store.Db,"students").Where(x=>Model.Companies(x).Contains(J.S(o,"id"))))Link("students",J.S(s,"id"),J.S(s,"name")+" · "+J.S(s,"assignment"));
+                foreach(var s in Model.Items(store.Db,"students").Where(x=>Model.Companies(x).Contains(J.S(o,"id"))))Link("students",J.S(s,"id"),J.S(s,"name")+" · "+Model.AssignmentSummary(s,J.S(o,"id")));
             });
             Title("Tutores",()=> {
                 foreach(var t in Model.Items(store.Db,"tutors").Where(x=>J.S(x,"companyID")==J.S(o,"id")))Link("tutors",J.S(t,"id"),J.S(t,"name"));
@@ -225,7 +253,7 @@ namespace PracticasFP {
                 TextField(o,"name","Nombre");
                 string previous=J.S(o,"companyID");
                 Select(o,"companyID","Empresa",Choices("companies"),id=> {
-                    if(previous!=id&&Model.Items(store.Db,"students").Any(s=>J.S(s,"tutorID")==J.S(o,"id")||Model.Items(s,"shifts").Any(p=>J.S(p,"tutorID")==J.S(o,"id"))))throw new Exception("Este tutor está asignado a prácticas. Retira esas asignaciones antes de cambiar su empresa.");
+                    if(previous!=id&&Model.Items(store.Db,"students").Any(s=>Model.HasTutor(s,J.S(o,"id"))))throw new Exception("Este tutor está asignado a prácticas. Retira esas asignaciones antes de cambiar su empresa.");
                     if(id=="")o.Remove("companyID");
                     else o["companyID"]=id;
                 });
@@ -247,7 +275,7 @@ namespace PracticasFP {
         }
         void Settings() {
             Title("Datos y copias · Windows");
-            Note("Versión 1.8.5 · Edición de pruebas\nFormato de datos 4 · Compatible con copias de Mac 1 a 4.");
+            Note("Versión 2.0.0\nFormato de datos 5 para dos periodos. Admite restaurar copias anteriores.");
             if(store.Blocked)Note(store.Error);
             else {
                 TextField(store.Db,"institute","Centro");
@@ -291,7 +319,13 @@ namespace PracticasFP {
             }
             .Contains(section))return;
             var o=section=="students"?Model.Student():section=="companies"?Model.Company():section=="tutors"?Model.Tutor():Model.Exclusion("Nuevo día",J.Today,J.Today,"Libre disposición");
-            store.Change(()=>J.EditArray(store.Db,section).Add(o));
+            store.Change(()=> {
+                if(section=="students") {
+                    Model.ConvertPeriods(o,store.Db);
+                    store.Db["version"]=5;
+                }
+                J.EditArray(store.Db,section).Add(o);
+            });
             selected=J.S(o,"id");
             Render();
         }
@@ -300,7 +334,7 @@ namespace PracticasFP {
             if(o==null)return;
             string id=J.S(o,"id");
             if(section=="companies"&&(Model.Occupied(store.Db,id)>0||Model.Items(store.Db,"tutors").Any(x=>J.S(x,"companyID")==id)))throw new Exception("Retira primero las alumnas y tutores vinculados a esta empresa.");
-            if(section=="tutors"&&Model.Items(store.Db,"students").Any(s=>J.S(s,"tutorID")==id||Model.Items(s,"shifts").Any(p=>J.S(p,"tutorID")==id)))throw new Exception("Retira primero el tutor de las prácticas vinculadas.");
+            if(section=="tutors"&&Model.Items(store.Db,"students").Any(s=>Model.HasTutor(s,id)))throw new Exception("Retira primero el tutor de las prácticas vinculadas.");
             string question=section=="exclusions"?"¿Eliminar este día o intervalo?":"¿Eliminar esta ficha?";
             if(Confirm(question+" Puedes recuperarlo con Deshacer durante esta sesión.")) {
                 store.Change(()=>J.EditArray(store.Db,section).Remove(o));
@@ -316,7 +350,11 @@ namespace PracticasFP {
                 using(var dialog=new ImportForm(sheets,store.Db)) {
                     if(dialog.ShowDialog(this)==DialogResult.OK&&dialog.Accepted.Count>0) {
                         store.Backup();
-                        store.Change(()=>J.EditArray(store.Db,"students").AddRange(dialog.Accepted));
+                        store.Change(()=> {
+                            foreach(var student in dialog.Accepted)Model.ConvertPeriods(J.D(student),store.Db);
+                            store.Db["version"]=5;
+                            J.EditArray(store.Db,"students").AddRange(dialog.Accepted);
+                        });
                         Navigate("students");
                     }
                 }

@@ -15,7 +15,7 @@ namespace PracticasFP {
         [STAThread] static void Main(string[] args) {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            string folder=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"PracticasFP","Datos");
+            string folder=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"PracticasFP2","Datos");
             int at=Array.IndexOf(args,"--data-directory");
             if(at>=0&&at+1<args.Length)folder=Path.GetFullPath(args[at+1]);
             Directory.CreateDirectory(folder);
@@ -45,7 +45,7 @@ namespace PracticasFP {
         readonly Panel editor=new BufferedEditor();
         FlowLayoutPanel fields;
         readonly TextBox search=new TextBox();
-        readonly ComboBox filter=new ComboBox();
+        readonly ComboBox filter=new ChoiceField();
         readonly ToolStripStatusLabel status=new ToolStripStatusLabel();
         readonly Label heading=new Label();
         string section="students",selected="";
@@ -55,7 +55,7 @@ namespace PracticasFP {
             store=value;
             fields=content;
             preferences=new ViewPreferences(store.Folder);
-            Text="Prácticas FP · Windows · 1.8.5 (pruebas)";
+            Text="Prácticas FP · Windows · 2.0.0";
             MinimumSize=new Size(900,620);
             Size=new Size(1280,850);
             StartPosition=FormStartPosition.CenterScreen;
@@ -81,7 +81,7 @@ namespace PracticasFP {
                 nav.Controls.Add(b);
             }
             nav.Controls.Add(new Label {
-                Text="1.8.5 · Windows\nVersión de pruebas",ForeColor=Color.White,AutoSize=true,Margin=new Padding(4,28,0,0)
+                Text="2.0.0 · Windows",ForeColor=Color.White,AutoSize=true,Margin=new Padding(4,28,0,0)
             });
             var area=new Panel {
                 Dock=DockStyle.Fill,Padding=new Padding(8)
@@ -215,6 +215,7 @@ namespace PracticasFP {
         void Navigate(string key) {
             ActiveControl=null;
             RememberView();
+            cardOffsets[section]=Math.Max(0,-tutorCards.AutoScrollPosition.Y);
             if(list.TopItem!=null)listPositions[section]=list.TopItem.Index;
             filterSelections[section]=filter.SelectedIndex;
             searches[section]=search.Text;
@@ -264,7 +265,7 @@ namespace PracticasFP {
             if(f==2)return p.Any(x=>x.Company!=""&&!Model.Done(Model.Flow(x.Owner,"annexI"),"archived"));
             if(f==3) {
                 var c=store.Queries.Calculate(s);
-                DateTime? end=c.End.HasValue?(J.B(s,"manualEnd")?J.Date(s,"end"):c.End):null;
+                DateTime? end=Model.ForecastEnd(s,c);
                 return end.HasValue&&end.Value.ToString("yyyy-MM")==J.Today.ToString("yyyy-MM");
             }
             return Model.Companies(s).Any(id=> {
@@ -272,15 +273,25 @@ namespace PracticasFP {
                 return c!=null&&store.Queries.Contacts(c).Any(x=>!J.B(x,"historical")&&!J.B(x,"completed")&&J.Date(x,"plannedDate")<J.Today);
             });
         }
+        bool CompanyFilter(Dictionary<string,object> company) {
+            switch(filter.SelectedIndex) {
+                case 1: return J.S(company,"response")=="waiting";
+                case 2: return J.S(company,"response")=="accepted";
+                case 3: return J.S(company,"response")=="rejected";
+                case 4: return Model.Items(store.Db,"students").Any(s=>Model.HasConfirmedCompany(s,J.S(company,"id")));
+                default: return true;
+            }
+        }
         void RefreshList() {
             rendering=true;
             string previous=selected;
             if(new[]{"students","companies","tutors"}.Contains(section))
                 selected=WorkspaceRules.Selection(Model.Items(store.Db,section).Select(x=>J.S(x,"id")),selected);
-            tutorCards.Visible=section=="tutors";
-            list.Visible=section!="tutors";
-            if(section=="tutors") {
-                RefreshTutorCards();
+            bool showCards=section=="students"||section=="companies"||section=="tutors";
+            tutorCards.Visible=showCards;
+            list.Visible=!showCards;
+            if(showCards) {
+                RefreshCards();
                 rendering=false;
                 UpdatePinned();
                 if(previous!=selected)RenderEditor();
@@ -289,25 +300,10 @@ namespace PracticasFP {
             int top=list.TopItem==null?0:list.TopItem.Index;
             list.BeginUpdate();
             list.Items.Clear();
-            if(new[] {
-                "students","companies","tutors","exclusions"
-            }
-            .Contains(section))foreach(var o in Model.Items(store.Db,section)) {
-                string name=J.S(o,section=="exclusions"?"title":"name"),summary="";
-                if(!Importer.Key(name+" "+J.S(o,"dni")+" "+J.S(o,"group")).Contains(Importer.Key(search.Text)))continue;
-                if(section=="students") {
-                    if(!StudentFilter(o))continue;
-                    var calc=store.Queries.Calculate(o);
-                    summary=J.S(o,"assignment")+" · "+Model.Name(store.Db,"companies",J.S(o,"companyID"))+" · "+(calc.Error??(calc.End.HasValue?"Fin "+J.Text(J.B(o,"manualEnd")?J.Date(o,"end"):calc.End.Value):"Sin inicio"));
-                }
-                if(section=="companies") {
-                    int f=filter.SelectedIndex;
-                    string response=J.S(o,"response");
-                    if(f==1&&response!="waiting"||f==2&&response!="accepted"||f==3&&response!="rejected"||f==4&&!Model.Items(store.Db,"students").Any(x=>Model.Companies(x).Contains(J.S(o,"id"))&&J.S(x,"assignment")=="Definitiva"))continue;
-                    summary=ResponseTitle(response)+" · "+store.Queries.Occupied(J.S(o,"id"))+" / "+(J.Get(o,"capacity")==null?"sin cupo":J.S(o,"capacity"))+" plazas";
-                }
-                if(section=="tutors")summary=Model.Name(store.Db,"companies",J.S(o,"companyID"));
-                if(section=="exclusions")summary=J.Text(J.Date(o,"from"))+" – "+J.Text(J.Date(o,"to"));
+            if(section=="exclusions")foreach(var o in Model.Items(store.Db,section)) {
+                string name=J.S(o,"title");
+                if(!Importer.Key(name).Contains(Importer.Key(search.Text)))continue;
+                string summary=J.Text(J.Date(o,"from"))+" – "+J.Text(J.Date(o,"to"));
                 var item=new ListViewItem(name==""?"Sin nombre":name);
                 item.SubItems.Add(summary);
                 item.Tag=J.S(o,"id");
@@ -379,7 +375,7 @@ namespace PracticasFP {
             var row=new FlowLayoutPanel {
                 AutoSize=true,WrapContents=true,Width=FieldWidth,Margin=new Padding(0,3,0,3)
             };
-            var n=new NumericUpDown {
+            var n=new NumberField {
                 Minimum=min,Maximum=max,Tag=FieldTag(obj,key),DecimalPlaces=decimals,Increment=decimals>0?0.5m:1m,Width=130
             };
             double value=J.N(obj,key,key=="targetHours"?500:(double)min);
@@ -437,24 +433,24 @@ namespace PracticasFP {
             fields.Controls.Add(c);
             return c;
         }
-        void DateField(Dictionary<string,object> obj,string key,string title,bool optional=false,Action<object> custom=null) {
+        void DateField(Dictionary<string,object> obj,string key,string title,bool optional=false,Action<object> custom=null,bool refreshEditor=false) {
             var row=new FlowLayoutPanel {
                 AutoSize=true,WrapContents=true,Width=FieldWidth,Margin=new Padding(0,3,0,3)
             };
             row.Controls.Add(new Label {
                 Text=title,AutoSize=true,MaximumSize=new Size(Math.Max(100,FieldWidth-165),0),TextAlign=ContentAlignment.MiddleLeft
             });
-            var date=new DateTimePicker {
+            var date=new DateFieldControl {
                 Tag=FieldTag(obj,key),Format=DateTimePickerFormat.Short,Width=145,ShowCheckBox=optional
             };
             date.Value=J.Date(obj,key);
             date.Checked=!optional||J.Get(obj,key)!=null;
             row.Controls.Add(date);
-            date.CloseUp+=(s,e)=>SaveDate(obj,key,date,optional,custom);
-            date.Leave+=(s,e)=>SaveDate(obj,key,date,optional,custom);
+            date.CloseUp+=(s,e)=>SaveDate(obj,key,date,optional,custom,refreshEditor);
+            date.Leave+=(s,e)=>SaveDate(obj,key,date,optional,custom,refreshEditor);
             fields.Controls.Add(row);
         }
-        void SaveDate(Dictionary<string,object> obj,string key,DateTimePicker d,bool optional,Action<object> custom) {
+        void SaveDate(Dictionary<string,object> obj,string key,DateTimePicker d,bool optional,Action<object> custom,bool refreshEditor) {
             object value=optional&&!d.Checked?null:(object)J.Stamp(d.Value.Date);
             if(J.Get(obj,key)==null&&value==null||J.Get(obj,key)!=null&&value!=null&&J.N(obj,key)==(double)value)return;
             Safe(()=> {
@@ -464,17 +460,18 @@ namespace PracticasFP {
                     else obj[key]=value;
                 });
                 RefreshList();
+                if(refreshEditor)RenderEditor();
             });
         }
-        void Select(Dictionary<string,object> obj,string key,string title,List<Choice> choices,Action<string> custom=null) {
+        void Select(Dictionary<string,object> obj,string key,string title,List<Choice> choices,Action<string> custom=null,string selectedValue=null) {
             fields.Controls.Add(new Label {
                 Text=title,AutoSize=true,Margin=new Padding(0,7,0,2)
             });
-            var c=new ComboBox {
+            var c=new ChoiceField {
                 DropDownStyle=ComboBoxStyle.DropDownList,Tag=FieldTag(obj,key),Width=FieldWidth
             };
             c.Items.AddRange(choices.ToArray());
-            c.SelectedIndex=Math.Max(0,choices.FindIndex(x=>x.Id==J.S(obj,key)));
+            c.SelectedIndex=Math.Max(0,choices.FindIndex(x=>x.Id==(selectedValue??J.S(obj,key))));
             c.SelectionChangeCommitted+=(s,e)=>Safe(()=> {
                 var choice=(Choice)c.SelectedItem;
                 store.Change(()=> {

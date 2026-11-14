@@ -112,11 +112,12 @@ namespace PracticasFP {
     }
     public class Period {
         public Dictionary<string,object> Owner;
+        public Calculation Result;
         public string Company,Tutor;
         public DateTime Start;
         public DateTime? End;
     }
-    public static class Model {
+    public static partial class Model {
         public static readonly string[] StudentSteps= {
             "Certificado de delitos de naturaleza sexual aportado","Anexo I · asignación de tutor a alumna · generado","Anexo I · asignación de tutor a alumna · firmado por mí y remitido a la empresa","Anexo I · asignación de tutor a alumna · devuelto firmado por el tutor","Anexo I · asignación de tutor a alumna · firma de la alumna","Práctica iniciada","Práctica terminada","Anexo II · calificación final de la alumna · generado","Anexo II · calificación final de la alumna · firmado por mí y remitido a la empresa","Anexo II · calificación final de la alumna · devuelto firmado por el tutor"
         };
@@ -167,6 +168,7 @@ namespace PracticasFP {
             return x==null?"Sin asignar":J.S(x,"name");
         }
         public static IEnumerable<string> Companies(object s) {
+            if(HasTwoPeriods(s))return PeriodOwners(s).Select(p=>J.S(p,"companyID")).Where(id=>id!="").Distinct();
             return new[] {
                 J.S(s,"companyID")
             }
@@ -176,6 +178,8 @@ namespace PracticasFP {
             return Items(db,"students").Count(s=>Companies(s).Contains(id));
         }
         public static void Assign(object db,Dictionary<string,object> s,Dictionary<string,object> owner,string id) {
+            if(HasTwoPeriods(s)&&(id==""||Find(db,"companies",id)==null))
+                throw new InvalidOperationException("Selecciona una empresa para este periodo.");
             if(id==J.S(owner,"companyID"))return;
             if(id!=""&&!Companies(s).Contains(id)) {
                 var c=Find(db,"companies",id);
@@ -185,9 +189,13 @@ namespace PracticasFP {
             else owner["companyID"]=id;
             owner.Remove("tutorID");
             if(Object.ReferenceEquals(owner,s)) s["assignment"]=id==""?"Pendiente":"Provisional";
-            else if(id!=""&&J.Get(owner,"paperwork")==null)owner["paperwork"]=Steps();
+            else {
+                if(HasTwoPeriods(s))owner["assignment"]="Provisional";
+                if(id!=""&&J.Get(owner,"paperwork")==null)owner["paperwork"]=Steps();
+            }
         }
         public static Calculation Calculate(object s,object db,DateTime? today=null) {
+            if(HasTwoPeriods(s))return CalculateGlobal(s,db,today);
             var r=new Calculation();
             double target=J.N(s,"targetHours",500),h=J.N(s,"hours");
             if(target<=0||target>10000||double.IsNaN(target)||double.IsInfinity(target)) {
@@ -240,6 +248,7 @@ namespace PracticasFP {
             return r;
         }
         public static List<Period> Periods(object s,object db,Calculation calculation=null) {
+            if(HasTwoPeriods(s))return TwoPeriods(s,db);
             var c=calculation??Calculate(s,db);
             DateTime? end=c.End.HasValue?(J.B(s,"manualEnd")?J.Date(s,"end"):c.End):null;
             var shifts=Items(s,"shifts").Where(x=>J.S(x,"companyID")!="").OrderBy(x=>J.Date(x,"from")).ToList();
@@ -383,7 +392,7 @@ namespace PracticasFP {
         public static Dictionary<string,object> Decode(string json) {
             var db=J.Parse(json);
             int version=(int)J.N(db,"version");
-            if(version<1||version>4)throw new Exception("Formato de datos no compatible (versiones admitidas: 1 a 4).");
+            if(version<1||version>5)throw new Exception("Formato de datos no compatible (versiones admitidas: 1 a 5).");
             ValidateShape(db);
             foreach(string list in new[] {
                 "students","companies","tutors","exclusions"
@@ -400,6 +409,7 @@ namespace PracticasFP {
             foreach(var s in Items(db,"students")) {
                 CheckSteps(s,10);
                 CheckFlows(s,false);
+                if(HasTwoPeriods(s))ValidateTwoPeriods(s,version);
                 Unique(Items(s,"shifts").Select(x=>J.S(x,"id")));
                 foreach(var shift in Items(s,"shifts")) {
                     if(J.Get(shift,"paperwork")!=null)CheckSteps(shift,10);
@@ -416,7 +426,7 @@ namespace PracticasFP {
                 MigrateSteps(s);
                 foreach(var shift in Items(s,"shifts"))if(J.Get(shift,"paperwork")!=null)MigrateSteps(shift);
             }
-            db["version"]=4;
+            db["version"]=Math.Max(version,4);
             return db;
         }
         static bool ValidGuid(string s) {
@@ -574,10 +584,10 @@ namespace PracticasFP {
         public static List<Dictionary<string,object>> Contacts(object db,Dictionary<string,object> c,Func<object,Calculation> calculate=null) {
             var result=new Dictionary<string,Dictionary<string,object>>();
             string id=J.S(c,"id");
-            foreach(var s in Items(db,"students").Where(x=>J.S(x,"assignment")=="Definitiva"&&J.B(x,"hasStart"))) {
+            foreach(var s in Items(db,"students").Where(x=>HasConfirmedCompany(x,id)&&(HasTwoPeriods(x)||J.B(x,"hasStart")))) {
                 var calculation=calculate==null?Calculate(s,db):calculate(s);
-                if(calculation.Error!=null)continue;
-                foreach(var p in Periods(s,db,calculation).Where(x=>x.Company==id&&x.End.HasValue)) {
+                if(calculation.Error!=null&&!HasTwoPeriods(s))continue;
+                foreach(var p in Periods(s,db,calculation).Where(x=>x.Company==id&&x.End.HasValue&&PeriodAssignment(s,x.Owner)=="Definitiva")) {
                     DateTime end=p.End.Value;
                     var steps=J.A(p.Owner,"paperwork");
                     if(steps.Count>6&&J.B(steps[6],"done")&&J.Date(steps[6],"date")<end)end=J.Date(steps[6],"date");
@@ -621,19 +631,34 @@ namespace PracticasFP {
             foreach(var s in Items(db,"students").Where(x=>selected==null||section=="students"&&J.S(x,"id")==J.S(selected,"id")||section=="companies"&&Companies(x).Contains(J.S(selected,"id")))) {
                 var calc=Calculate(s,db);
                 b.AppendLine("ALUMNA: "+J.S(s,"name")+" · "+J.S(s,"group"));
-                b.AppendLine("Asignación: "+J.S(s,"assignment")+" · Objetivo: "+J.N(s,"targetHours",500)+" h · Previstas hasta ayer: "+calc.Elapsed+" h");
-                b.AppendLine("Inicio: "+(J.B(s,"hasStart")?J.Text(J.Date(s,"start")):"Sin establecer")+" · Fin: "+(calc.End.HasValue?J.Text(J.B(s,"manualEnd")?J.Date(s,"end"):calc.End.Value):"Sin calcular"));
-                b.AppendLine("Jornada inicial: "+J.N(s,"hours")+" h/día");
-                foreach(var shift in Items(s,"shifts").OrderBy(x=>J.Date(x,"from")))b.AppendLine("Cambio "+J.Text(J.Date(shift,"from"))+": "+J.S(shift,"hours")+" h/día");
-                if(calc.Error!=null)b.AppendLine(calc.Error);
-                if(calc.End.HasValue&&(J.Date(s,"start")<J.Date(db,"calendarFrom")||calc.End.Value>J.Date(db,"calendarTo")))b.AppendLine("Previsión fuera del calendario revisado.");
+                b.AppendLine("Objetivo: "+J.N(s,"targetHours",500)+" h · Previstas hasta ayer: "+calc.Elapsed+" h");
+                bool twoPeriods=HasTwoPeriods(s);
+                if(twoPeriods) {
+                    b.AppendLine("Horas del curso anterior: "+J.N(s,"previousCourseHours")+" · Para el curso siguiente: "+J.N(s,"nextCourseHours"));
+                    b.AppendLine("Restantes del objetivo general: "+RemainingHours(s,calc.Elapsed)+" h");
+                } else {
+                    b.AppendLine("Jornada inicial: "+J.N(s,"hours")+" h/día");
+                    foreach(var shift in Items(s,"shifts").OrderBy(x=>J.Date(x,"from")))b.AppendLine("Cambio "+J.Text(J.Date(shift,"from"))+": "+J.S(shift,"hours")+" h/día");
+                    if(calc.Error!=null)b.AppendLine(calc.Error);
+                }
+                int number=0;
                 foreach(var p in Periods(s,db)) {
-                    b.AppendLine("Empresa: "+Name(db,"companies",p.Company)+" · Tutor: "+Name(db,"tutors",p.Tutor));
-                    b.AppendLine("Periodo: "+(J.B(s,"hasStart")?J.Text(p.Start):"Sin inicio")+" – "+(p.End.HasValue?J.Text(p.End.Value):"Sin calcular"));
-                    foreach(int i in Object.ReferenceEquals(p.Owner,s)?new[] {
-                        0,5,6
+                    number++;
+                    if(twoPeriods) {
+                        b.AppendLine((number==1?"Primer periodo":"Segundo periodo")+" · Objetivo: "+J.N(p.Owner,"targetHours")+" h · Previstas: "+p.Result.Elapsed+" h");
+                        b.AppendLine("Jornada inicial: "+J.N(p.Owner,"hours")+" h/día");
+                        foreach(var change in Items(p.Owner,"shifts").OrderBy(x=>J.Date(x,"from")))b.AppendLine("Cambio "+J.Text(J.Date(change,"from"))+": "+J.S(change,"hours")+" h/día");
+                        if(p.Result.Error!=null)b.AppendLine(p.Result.Error);
                     }
-                    :new[] {
+                    b.AppendLine("Empresa: "+Name(db,"companies",p.Company)+" · Tutor: "+Name(db,"tutors",p.Tutor));
+                    b.AppendLine("Asignación: "+PeriodAssignment(s,p.Owner));
+                    b.AppendLine("Periodo: "+(J.B(twoPeriods?p.Owner:s,"hasStart")?J.Text(p.Start):"Sin inicio")+" – "+(p.End.HasValue?J.Text(p.End.Value):"Sin calcular"));
+                    if(p.End.HasValue&&(p.Start<J.Date(db,"calendarFrom")||p.End.Value>J.Date(db,"calendarTo")))b.AppendLine("Previsión fuera del calendario revisado.");
+                    if(number==1) {
+                        var certificate=J.A(s,"paperwork")[0];
+                        b.AppendLine(J.S(certificate,"title")+": "+(J.B(certificate,"done")?"Hecho":"Pendiente"));
+                    }
+                    foreach(int i in new[] {
                         5,6
                     }) {
                         var steps=J.A(p.Owner,"paperwork");

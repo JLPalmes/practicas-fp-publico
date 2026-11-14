@@ -98,7 +98,7 @@ class Tests {
             var migrated=Model.Decode(J.Json(legacy));
             Assert(J.N(migrated,"version")==4&&J.B(J.A(Model.Items(migrated,"students").First(),"paperwork")[2],"done"),"Migración versión 1 y reconciliación de devolución");
             var malformed=J.Clone(db);
-            malformed["version"]=5;
+            malformed["version"]=6;
             Reject(()=>Model.Decode(J.Json(malformed)),"Se rechaza versión futura");
             malformed=J.Clone(db);
             J.A(malformed,"students").Add(J.Clone(J.A(malformed,"students")[0]));
@@ -243,6 +243,7 @@ class Tests {
             Assert(lines.SequenceEqual(new[]{"Tutora ficticia","Empresa del tutor","Alumna inicial","Alumna posterior"}),"Lista de tutores ordena nombre, empresa y alumnas");
             Assert(WorkspaceRules.TutorMatches(tutorDb,tutor,"empresa del tutor")&&WorkspaceRules.TutorMatches(tutorDb,tutor,"posterior"),"Búsqueda de tutores admite empresa y alumna");
             Assert(WorkspaceRules.TutorLines(tutorDb,Model.Tutor()).Skip(1).SequenceEqual(new[]{"Sin empresa","Sin alumnas asignadas"}),"Tutor sin vínculos muestra estados explícitos");
+            TwoPeriodTests();
             Console.WriteLine("SUPERADAS: "+count+" comprobaciones.");
             return 0;
         }
@@ -253,6 +254,44 @@ class Tests {
         finally {
             if(Directory.Exists(folder))Directory.Delete(folder,true);
         }
+    }
+    static void TwoPeriodTests() {
+        var db=Model.Empty();
+        db["version"]=5;
+        db["exclusions"]=new List<object>();
+        var company=Model.Company();
+        company["capacity"]=1;
+        company["response"]="accepted";
+        J.EditArray(db,"companies").Add(company);
+        var student=Student(db);
+        student["targetHours"]=40.0;
+        Model.ConvertPeriods(student,db);
+        var periods=Model.Items(student,"practicePeriods").ToList();
+        Assert(periods.Count==2&&!J.B(periods[1],"active"),"Dos periodos con segundo opcional");
+        var first=periods[0];var second=periods[1];
+        first["hasStart"]=true;
+        first["start"]=J.Stamp(new DateTime(2026,11,2));
+        first["targetHours"]=14.0;
+        Assert(Model.CalculatePeriod(first,db).Error!=null,"El cálculo exige empresa asignada");
+        string id=J.S(company,"id");
+        Model.Assign(db,student,first,id);
+        Reject(()=>Model.Assign(db,student,first,""),"Un periodo no puede quedar sin empresa al editar la asignación");
+        J.EditArray(first,"shifts").Add(J.Obj("id",J.Id(),"from",J.Stamp(new DateTime(2026,11,3)),"hours",3.5));
+        Assert(Model.CalculatePeriod(first,db).End==new DateTime(2026,11,4),"El cambio de jornada afecta solo a su periodo");
+        second["active"]=true;
+        second["hasStart"]=true;
+        second["start"]=J.Stamp(new DateTime(2026,11,5));
+        second["targetHours"]=7.0;
+        Model.Assign(db,student,second,id);
+        first["assignment"]="Definitiva";
+        Assert(Model.PeriodAssignment(student,second)=="Provisional","Confirmar un periodo no confirma el otro");
+        student["previousCourseHours"]=10.0;
+        student["nextCourseHours"]=9.0;
+        var global=Model.Calculate(student,db,new DateTime(2026,11,6));
+        Assert(global.Elapsed==21&&Model.RemainingHours(student,global.Elapsed)==9&&Model.Occupied(db,id)==1,"Suma independiente de periodos, horas previas y una sola plaza por alumna");
+        Assert(Model.Decode(J.Json(db))["version"].ToString()=="5","Se guardan ambos periodos en el formato 5");
+        second["start"]=J.Stamp(new DateTime(2026,11,4));
+        Assert(Model.Calculate(student,db,new DateTime(2026,11,6)).Elapsed==14&&Model.Periods(student,db)[1].Result.Error!=null,"No se suman periodos solapados");
     }
     static void Entry(ZipArchive zip,string path,string text) {
         using(var w=new StreamWriter(zip.CreateEntry(path).Open()))w.Write(text);

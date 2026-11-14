@@ -10,7 +10,7 @@ namespace PracticasFP {
             return available.Contains(selected)?selected:available.FirstOrDefault()??"";
         }
         public static List<Dictionary<string,object>> TutorStudents(Dictionary<string,object> db,string id) {
-            return Model.Items(db,"students").Where(s=>J.S(s,"tutorID")==id||Model.Items(s,"shifts").Any(p=>J.S(p,"tutorID")==id)).ToList();
+            return Model.Items(db,"students").Where(s=>Model.HasTutor(s,id)).ToList();
         }
         public static string[] TutorLines(Dictionary<string,object> db,Dictionary<string,object> tutor) {
             var lines=new List<string>{J.S(tutor,"name")==""?"Tutor sin nombre":J.S(tutor,"name"),Model.Name(db,"companies",J.S(tutor,"companyID"))};
@@ -22,6 +22,16 @@ namespace PracticasFP {
         }
         public static bool TutorMatches(Dictionary<string,object> db,Dictionary<string,object> tutor,string search) {
             return Importer.Key(string.Join(" ",TutorLines(db,tutor))).Contains(Importer.Key(search));
+        }
+        public static string[] CompanyLines(object db,object company) {
+            var students=Model.Items(db,"students").Where(s=>Model.Companies(s).Contains(J.S(company,"id")));
+            return new[]{J.S(company,"name")==""?"Empresa sin nombre":J.S(company,"name")}
+                .Concat(students.Select(s=>J.S(s,"name")==""?"Alumna sin nombre":J.S(s,"name")).DefaultIfEmpty("Sin alumnas asignadas")).ToArray();
+        }
+
+        public static string[] StudentLines(object db,object student) {
+            return new[]{J.S(student,"name")==""?"Alumna sin nombre":J.S(student,"name")}
+                .Concat(Model.Companies(student).Select(id=>Model.Name(db,"companies",id)).DefaultIfEmpty("Sin empresa asignada")).ToArray();
         }
     }
 }
