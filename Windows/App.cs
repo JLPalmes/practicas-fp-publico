@@ -56,7 +56,7 @@ namespace PracticasFP {
             store=value;
             fields=content;
             preferences=new ViewPreferences(store.Folder);
-            Text="Prácticas FP · Windows · 2.0.2";
+            Text="Prácticas FP · Windows · 2.0.3";
             MinimumSize=new Size(900,620);
             Size=new Size(1280,850);
             StartPosition=FormStartPosition.CenterScreen;
@@ -82,7 +82,7 @@ namespace PracticasFP {
                 nav.Controls.Add(b);
             }
             nav.Controls.Add(new Label {
-                Text="2.0.2 · Windows",ForeColor=Color.White,AutoSize=true,Margin=new Padding(4,28,0,0)
+                Text="2.0.3 · Windows",ForeColor=Color.White,AutoSize=true,Margin=new Padding(4,28,0,0)
             });
             var area=new Panel {
                 Dock=DockStyle.Fill,Padding=new Padding(8)
@@ -331,10 +331,12 @@ namespace PracticasFP {
             foreach(Control c in content.Controls.Cast<Control>().ToArray())c.Dispose();
             content.Controls.Clear();
         }
-        void Note(string text) {
-            fields.Controls.Add(new Label {
+        Label Note(string text) {
+            var label=new Label {
                 Text=text,AutoSize=true,MaximumSize=new Size(530,0),Margin=new Padding(0,4,0,10)
-            });
+            };
+            fields.Controls.Add(label);
+            return label;
         }
         sealed class TextFieldBinding {
             public readonly Label Caption=new Label {AutoSize=true,Margin=new Padding(0,7,0,2)};
@@ -369,7 +371,7 @@ namespace PracticasFP {
             fields.Controls.Add(binding.Caption);
             fields.Controls.Add(binding.Input);
         }
-        void Number(Dictionary<string,object> obj,string key,string title,decimal min,decimal max,int decimals=0,Action<decimal> custom=null,bool optional=false) {
+        void Number(Dictionary<string,object> obj,string key,string title,decimal min,decimal max,int decimals=0,Action<decimal> custom=null,bool optional=false,Action<decimal> preview=null) {
             fields.Controls.Add(new Label {
                 Text=title,AutoSize=true,Margin=new Padding(0,7,0,2)
             });
@@ -401,17 +403,30 @@ namespace PracticasFP {
                     RefreshList();
                 });
             }
-            n.Leave+=(s,e)=> {
+            if(preview!=null)n.TextChanged+=(s,e)=> {
+                decimal typed;
+                if(decimal.TryParse(n.Text,out typed)&&typed>=min&&typed<=max&&decimal.Round(typed,decimals)==typed)preview(typed);
+                else preview((decimal)J.N(obj,key));
+            };
+            Action commit=()=> {
                 if(optional&&enabled!=null&&!enabled.Checked)return;
-                if((double)n.Value==J.N(obj,key))return;
+                decimal edited=n.CommitText();
+                if((double)edited==J.N(obj,key))return;
                 Safe(()=> {
                     store.Change(()=> {
-                        if(custom!=null)custom(n.Value);
-                        else obj[key]=(double)n.Value;
+                        if(custom!=null)custom(edited);
+                        else obj[key]=(double)edited;
                     });
                     RefreshList();
-                    RenderEditor();
+                    if(preview==null)RenderEditor();
+                    else preview(edited);
                 });
+            };
+            n.Leave+=(s,e)=>commit();
+            n.KeyDown+=(s,e)=> {
+                if(e.KeyCode!=Keys.Enter)return;
+                e.SuppressKeyPress=true;
+                commit();
             };
             fields.Controls.Add(row);
         }

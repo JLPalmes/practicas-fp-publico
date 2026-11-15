@@ -1,6 +1,6 @@
-# Prácticas FP 2.0.2
+# Prácticas FP 2.0.3
 
-Al elegir Admite alumnas se establece un cupo mínimo de una plaza. El cupo se puede editar desde la ficha de empresa.
+Las plazas libres se recalculan mientras se escribe el cupo en la ficha de empresa. El cupo se guarda al salir del campo o pulsar Intro.
 
 Versión para Windows 10 y 11 x64 con instalación y datos propios. Se recomienda .NET Framework 4.8.
 

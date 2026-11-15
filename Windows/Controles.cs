@@ -23,6 +23,11 @@ namespace PracticasFP {
     internal sealed class NumberField : NumericUpDown {
         public NumberField() { InterceptArrowKeys=false; }
 
+        internal decimal CommitText() {
+            ValidateEditText();
+            return Value;
+        }
+
         protected override void OnLayout(LayoutEventArgs e) {
             base.OnLayout(e);
             foreach(Control child in Controls) {

@@ -7,7 +7,7 @@ Los datos se guardan localmente, sin cuentas ni servicios en la nube.
 ## Descargar e instalar
 
 
-La versión vigente es **Prácticas FP 2.0.2 para Windows x64**. Requiere Windows 10 u 11 y se recomienda .NET Framework 4.8.
+La versión vigente es **Prácticas FP 2.0.3 para Windows x64**. Requiere Windows 10 u 11 y se recomienda .NET Framework 4.8.
 
 [Descargar Prácticas FP 2](https://github.com/JLPalmes/practicas-fp-publico/releases/latest)
 

@@ -179,9 +179,12 @@ namespace PracticasFP {
                 Note(occupied+" plazas ocupadas");
                 if(J.S(o,"response")=="accepted") {
                     int minimum=Math.Max(1,occupied);
-                    if(J.N(o,"capacity")<minimum)Note("Confirma el cupo de esta ficha anterior.");
-                    else Note((J.N(o,"capacity")-occupied)+" plazas libres");
-                    Number(o,"capacity","Plazas concedidas",minimum,100000,0,value=>o["capacity"]=(int)value);
+                    var available=Note("");
+                    Action<decimal> updateAvailable=value=>available.Text=value<minimum
+                        ?"Confirma el cupo de esta ficha anterior."
+                        :(value-occupied)+" plazas libres";
+                    updateAvailable((decimal)J.N(o,"capacity"));
+                    Number(o,"capacity","Plazas concedidas",minimum,100000,0,value=>o["capacity"]=(int)value,preview:updateAvailable);
                 }
             });
             Documents(o,"agreement");
@@ -281,7 +284,7 @@ namespace PracticasFP {
         }
         void Settings() {
             Title("Datos y copias · Windows");
-            Note("Versión 2.0.2\nFormato de datos 5 para dos periodos. Admite restaurar copias anteriores.");
+            Note("Versión 2.0.3\nFormato de datos 5 para dos periodos. Admite restaurar copias anteriores.");
             if(store.Blocked)Note(store.Error);
             else {
                 TextField(store.Db,"institute","Centro");

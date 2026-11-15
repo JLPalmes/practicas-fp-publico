@@ -135,6 +135,14 @@ class UiTests {
                 Check(cards.Controls.OfType<TutorListButton>().Count()==1,"Buscar una alumna encuentra su tutor");search.Text="";Pump();
                 Invoke(form,"Navigate","companies");
                 Check(Field<string>(form,"selected")==J.S(company,"id"),"Empresas abre automáticamente su primera ficha");
+                var capacity=All(content).OfType<NumberField>().Single(c=>(c.Tag as string??"").EndsWith("|capacity"));
+                var capacityInput=capacity.Controls.OfType<TextBox>().Single();
+                var freeLabel=All(content).OfType<Label>().Single(c=>c.Text.EndsWith(" plazas libres"));
+                string previousFree=freeLabel.Text;
+                capacityInput.Focus();capacityInput.Text="7";Pump();
+                Check(previousFree!=freeLabel.Text&&J.N(company,"capacity")==4,"Escribir el cupo recalcula las plazas libres antes de guardar");
+                form.ActiveControl=null;Pump();
+                Check(J.N(company,"capacity")==7&&previousFree!=freeLabel.Text,"Salir del campo guarda el cupo escrito y conserva el cálculo");
                 Check(((Button)cards.Controls[0]).AccessibleName=="Empresa de prueba · Alumna del periodo inicial · Alumna del periodo posterior","El listado de empresas incluye alumnas de ambos periodos");
                 var companyRow=All(content).OfType<FlowLayoutPanel>().First(p=>p.Name=="company");
                 Check(companyRow.Controls[0].Top==companyRow.Controls[1].Top,"Empresa y CIF comparten fila");
