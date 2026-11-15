@@ -1,6 +1,6 @@
-# Prácticas FP 2.0.1
+# Prácticas FP 2.0.2
 
-Nuevo icono para la aplicación, el instalador y los accesos directos de Windows.
+Al elegir Admite alumnas se establece un cupo mínimo de una plaza. El cupo se puede editar desde la ficha de empresa.
 
 Versión para Windows 10 y 11 x64 con instalación y datos propios. Se recomienda .NET Framework 4.8.
 

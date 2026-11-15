@@ -1,10 +1,10 @@
 # Prácticas FP para Windows
 
-Versión **2.0.1** para Windows.
+Versión **2.0.2** para Windows.
 
 ## Instalar y probar
 
-1. Ejecuta `dist\Windows\Instalar-PracticasFP-2.0.1-x64.exe`.
+1. Ejecuta `dist\Windows\Instalar-PracticasFP-2.0.2-x64.exe`.
 2. Pulsa **Instalar**. No requiere permisos de administrador y no abre la aplicación automáticamente.
 3. Abre **Prácticas FP** desde el escritorio o el menú Inicio.
 4. Prueba primero con fichas ficticias. Para usar una copia de Mac, ve a **Ajustes y copias → Restaurar copia de Windows o Mac…**. Antes de sustituir datos se muestra un resumen y se conserva una copia previa.

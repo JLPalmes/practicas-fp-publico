@@ -165,18 +165,24 @@ namespace PracticasFP {
                 var columns=new FlowLayoutPanel {Tag="columns", AutoSize=true, WrapContents=true};
                 fields.Controls.Add(columns);
                 fields=CompanyColumn(columns,"Contacto");
+                int occupied=store.Queries.Occupied(J.S(o,"id"));
                 Select(o,"response","Estado",new List<Choice> {
                     new Choice("uncontacted","Contacto sin registrar"),new Choice("waiting","Esperando respuesta"),new Choice("accepted","Admite alumnas"),new Choice("rejected","Rechaza alumnas")
+                },response=> {
+                    o["response"]=response;
+                    int minimum=Math.Max(1,occupied);
+                    if(response=="accepted"&&J.N(o,"capacity")<minimum)o["capacity"]=minimum;
                 });
                 DateField(o,"contactedOn","Fecha de contacto",true);
                 DateField(o,"respondedOn","Fecha de respuesta",true);
                 fields=CompanyColumn(columns,"Plazas");
-                int occupied=store.Queries.Occupied(J.S(o,"id"));
-                Note(occupied+" plazas ocupadas · "+(J.Get(o,"capacity")==null?"Cupo sin indicar":Math.Max(0,J.N(o,"capacity")-occupied)+" libres"));
-                Number(o,"capacity","Plazas concedidas",occupied,100000,0,value=> {
-                    o["capacity"]=(int)value;
-                    if(value>0)o["response"]="accepted";
-                },true);
+                Note(occupied+" plazas ocupadas");
+                if(J.S(o,"response")=="accepted") {
+                    int minimum=Math.Max(1,occupied);
+                    if(J.N(o,"capacity")<minimum)Note("Confirma el cupo de esta ficha anterior.");
+                    else Note((J.N(o,"capacity")-occupied)+" plazas libres");
+                    Number(o,"capacity","Plazas concedidas",minimum,100000,0,value=>o["capacity"]=(int)value);
+                }
             });
             Documents(o,"agreement");
             Title("Alumnas vinculadas",()=> {
@@ -275,7 +281,7 @@ namespace PracticasFP {
         }
         void Settings() {
             Title("Datos y copias · Windows");
-            Note("Versión 2.0.1\nFormato de datos 5 para dos periodos. Admite restaurar copias anteriores.");
+            Note("Versión 2.0.2\nFormato de datos 5 para dos periodos. Admite restaurar copias anteriores.");
             if(store.Blocked)Note(store.Error);
             else {
                 TextField(store.Db,"institute","Centro");
