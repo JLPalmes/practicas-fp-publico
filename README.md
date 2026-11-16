@@ -7,7 +7,7 @@ Los datos se guardan localmente, sin cuentas ni servicios en la nube.
 ## Descargar e instalar
 
 
-La versión publicada más reciente es **Prácticas FP Tauri 2.1.2 para Windows x64**. Requiere Windows 10 u 11 y Microsoft Edge WebView2. Se recomienda .NET Framework 4.8.
+La versión publicada más reciente es **Prácticas FP Tauri 2.1.3 para Windows x64**. Requiere Windows 10 u 11 y Microsoft Edge WebView2. Se recomienda .NET Framework 4.8.
 
 [Descargar Prácticas FP Tauri](https://github.com/JLPalmes/practicas-fp-publico/releases/latest)
 
@@ -18,7 +18,7 @@ Para recuperar datos anteriores, exporta una copia desde la versión 1 y restáu
 ## Código y compilación
 
 - Windows: ejecuta `powershell -NoProfile -ExecutionPolicy Bypass -File Windows\Compilar.ps1`; compila y ejecuta las pruebas antes de generar el instalador.
-- **Prácticas FP Tauri 2.1.2 para Windows x64**: ejecuta `powershell -NoProfile -ExecutionPolicy Bypass -File Windows\Compilar-Tauri.ps1 -Verificar` para generar y verificar el instalador y su archivo de fuentes. Esta edición requiere WebView2 y usa su propia carpeta de datos. Consulta el [registro de desarrollo de Tauri](Experimentos/README.md).
+- **Prácticas FP Tauri 2.1.3 para Windows x64**: ejecuta `powershell -NoProfile -ExecutionPolicy Bypass -File Windows\Compilar-Tauri.ps1 -Verificar` para generar y verificar el instalador y su archivo de fuentes. Esta edición requiere WebView2 y usa su propia carpeta de datos. Consulta el [registro de desarrollo de Tauri](Experimentos/README.md).
 - La publicación automatizada compila Windows, ejecuta las pruebas y adjunta el instalador, la licencia y sus sumas SHA-256 a una versión de GitHub. El código fuente correspondiente se conserva en la etiqueta de esa publicación.
 
 ## Licencia
