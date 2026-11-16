@@ -7,9 +7,11 @@ Los datos se guardan localmente, sin cuentas ni servicios en la nube.
 ## Descargar e instalar
 
 
-La versión publicada en GitHub Releases es **Prácticas FP 2.0.3 para Windows x64 (WinForms)**. Requiere Windows 10 u 11 y se recomienda .NET Framework 4.8.
+La versión publicada más reciente es **Prácticas FP Tauri 2.1.2 para Windows x64**. Requiere Windows 10 u 11 y Microsoft Edge WebView2. Se recomienda .NET Framework 4.8.
 
-[Descargar Prácticas FP 2](https://github.com/JLPalmes/practicas-fp-publico/releases/latest)
+[Descargar Prácticas FP Tauri](https://github.com/JLPalmes/practicas-fp-publico/releases/latest)
+
+[Descargar la edición anterior 2.0.3 (WinForms)](https://github.com/JLPalmes/practicas-fp-publico/releases/tag/v2.0.3)
 
 Para recuperar datos anteriores, exporta una copia desde la versión 1 y restáurala en la 2. La versión 2 usa su propia carpeta de datos. Consulta la [guía de Windows](Windows/LEEME.md).
 
