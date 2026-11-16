@@ -7,9 +7,10 @@ Los datos se guardan localmente, sin cuentas ni servicios en la nube.
 ## Descargar e instalar
 
 
-La versión publicada más reciente es **Prácticas FP Tauri 2.1.3 para Windows x64**. Requiere Windows 10 u 11 y Microsoft Edge WebView2. Se recomienda .NET Framework 4.8.
+**Prácticas FP 2.1.3** está disponible para Windows y Mac.
 
-[Descargar Prácticas FP Tauri](https://github.com/JLPalmes/practicas-fp-publico/releases/latest)
+- Windows x64, Windows 10 u 11 con Microsoft Edge WebView2. [Descargar instalador Windows](https://github.com/JLPalmes/practicas-fp-publico/releases/download/tauri-v2.1.3/Instalar-PracticasFP-Tauri-2.1.3-x64.exe)
+- Mac con Apple Silicon, macOS 14 o posterior. [Descargar instalador Mac (.dmg)](https://github.com/JLPalmes/practicas-fp-publico/releases/download/mac-v2.1.3-desarrollo.1/PracticasFP-2.1.3-AppleSilicon-Asignaciones.dmg)
 
 [Descargar la edición anterior 2.0.3 (WinForms)](https://github.com/JLPalmes/practicas-fp-publico/releases/tag/v2.0.3)
 
