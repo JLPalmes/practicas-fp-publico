@@ -79,6 +79,41 @@ import Foundation
   check(transfer.setTutor(destinationTutor.id, for: transferred.id, at: destination.id) && transfer.tutorID(for: transfer.students[0], at: destination.id) == destinationTutor.id, "Tutor asignado al nuevo periodo")
   var another = Student(); another.name = "Otra alumna"; transfer.students.append(another)
   check(!transfer.canAssign(another.id, to: destination.id), "El cupo bloquea otra asignación a la empresa del nuevo periodo")
-  print("31 pruebas de flujo superadas")
+  var migratedTransfer = try Store.decode(JSONEncoder().encode(transfer))
+  migratedTransfer.students[0].assignment = "Provisional"
+  check(migratedTransfer.students[0].periodAssignment(nil) == "Definitiva" &&
+        migratedTransfer.definitiveStudents(origin.id).count == 1,
+        "Un periodo anterior con empresa siempre se considera definitivo")
+  check(migratedTransfer.monthlySchedule(for: origin.id).count == 1 &&
+        migratedTransfer.monthlySchedule(for: destination.id).first?.due == day("2027-03-15"),
+        "El seguimiento conserva los contactos del periodo anterior")
+  migratedTransfer.students[0].shifts[0].assignment = "Provisional"
+  check(migratedTransfer.monthlySchedule(for: destination.id).isEmpty, "Un periodo posterior provisional no genera contactos")
+  let newPeriod = Shift(from: day("2027-04-01"), hours: 7)
+  migratedTransfer.students[0].shifts.append(newPeriod)
+  check(migratedTransfer.assignPeriod(transferred.id, periodID: newPeriod.id, to: destination.id) &&
+        migratedTransfer.students[0].periodAssignment(newPeriod.id) == "Provisional",
+        "Una empresa asignada a un periodo nuevo empieza como provisional")
+  migratedTransfer.students[0].confirmStartedAndPreviousPeriods()
+  check(migratedTransfer.students[0].assignment == "Definitiva" &&
+        migratedTransfer.students[0].shifts[0].assignment == "Definitiva" &&
+        migratedTransfer.students[0].periodAssignment(newPeriod.id) == "Provisional",
+        "Al añadir otro periodo, los anteriores se confirman y el nuevo sigue provisional")
+  var started = Student()
+  started.companyID = origin.id
+  started.assignment = "Provisional"
+  started.hasStart = true
+  started.start = day("2027-01-04")
+  let today = day("2027-01-05")
+  check(started.periodAssignment(nil, today: today) == "Definitiva" &&
+        started.periodAssignment(nil, today: started.start) == "Provisional",
+        "Un inicio pasado confirma la asignación, pero hoy no cuenta como fecha pasada")
+  var later = Shift(from: day("2027-01-05"), hours: 7, companyID: destination.id)
+  later.assignment = "Provisional"
+  started.shifts = [later]
+  started.confirmStartedAndPreviousPeriods(today: day("2027-01-06"))
+  check(started.shifts[0].assignment == "Definitiva",
+        "Un inicio pasado confirma y guarda la asignación de un periodo posterior")
+  print("38 pruebas de flujo superadas")
  }
 }

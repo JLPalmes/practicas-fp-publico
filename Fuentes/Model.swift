@@ -40,6 +40,7 @@ struct Shift: Codable, Identifiable, Equatable {
     // nil means that the company from the preceding period continues.
     var companyID: UUID?
     var tutorID: UUID?
+    var assignment: String?
     // Separate annex workflow when this period starts at a different company.
     var documents: [DocumentFlow]?
     var paperwork: [Step]?
@@ -57,6 +58,39 @@ struct Student: Codable, Identifiable, Equatable {
     var preferredType = ""; var preferredZone = ""; var preferences = ""; var notes = ""
     var hasStart = false; var start = Date(); var hours = 7.0; var shifts: [Shift] = []
     var targetHours: Double?
+    var previousCourseHours: Double?
+    var nextCourseHours: Double?
+
+    func isPreviousPeriod(_ shiftID: UUID?) -> Bool {
+        shifts.filter { $0.companyID != nil }.sorted { $0.from < $1.from }.last?.id != shiftID
+    }
+
+    func requiresDefinitiveAssignment(_ shiftID: UUID?, today: Date = Date()) -> Bool {
+        let period = shiftID.flatMap { id in shifts.first { $0.id == id } }
+        let company = shiftID == nil ? companyID : period?.companyID
+        guard company != nil else { return false }
+        if isPreviousPeriod(shiftID) { return true }
+        guard hasStart, let date = shiftID == nil ? start : period?.from else { return false }
+        return cal.startOfDay(for: date) < cal.startOfDay(for: today)
+    }
+
+    func periodAssignment(_ shiftID: UUID?, today: Date = Date()) -> String {
+        if requiresDefinitiveAssignment(shiftID, today: today) { return "Definitiva" }
+        guard let shiftID else { return companyID == nil ? "Pendiente" : assignment }
+        guard let period = shifts.first(where: { $0.id == shiftID }), period.companyID != nil else { return "Pendiente" }
+        return period.assignment ?? assignment
+    }
+
+    mutating func confirmStartedAndPreviousPeriods(today: Date = Date()) {
+        if requiresDefinitiveAssignment(nil, today: today) { assignment = "Definitiva" }
+        for index in shifts.indices where requiresDefinitiveAssignment(shifts[index].id, today: today) {
+            shifts[index].assignment = "Definitiva"
+        }
+    }
+
+    func remainingHours(after elapsed: Double) -> Double {
+        max(0, requiredHours - (previousCourseHours ?? 0) - elapsed)
+    }
     var requiredHours: Double { targetHours ?? 500 }
     var manualEnd = false; var end = Date()
     var paperwork = steps(studentPaperworkTitles)
@@ -193,7 +227,7 @@ extension Database {
         guard students[index].companyID != companyID else { return true }
         students[index].companyID = companyID
         students[index].tutorID = nil
-        students[index].assignment = companyID == nil ? "Pendiente" : "Provisional"
+        students[index].assignment = companyID == nil ? "Pendiente" : students[index].requiresDefinitiveAssignment(nil) ? "Definitiva" : "Provisional"
         return true
     }
     func canAssignPeriod(_ studentID: UUID, periodID: UUID, to companyID: UUID?) -> Bool {
@@ -209,8 +243,12 @@ extension Database {
         guard canAssignPeriod(studentID, periodID: periodID, to: companyID),
               let studentIndex = students.firstIndex(where: { $0.id == studentID }),
               let periodIndex = students[studentIndex].shifts.firstIndex(where: { $0.id == periodID }) else { return false }
-        students[studentIndex].shifts[periodIndex].companyID = companyID
-        students[studentIndex].shifts[periodIndex].tutorID = nil
+        if students[studentIndex].shifts[periodIndex].companyID != companyID {
+            students[studentIndex].shifts[periodIndex].companyID = companyID
+            let isPrevious = students[studentIndex].requiresDefinitiveAssignment(periodID)
+            students[studentIndex].shifts[periodIndex].assignment = companyID == nil ? "Pendiente" : isPrevious ? "Definitiva" : "Provisional"
+            students[studentIndex].shifts[periodIndex].tutorID = nil
+        }
         if companyID != nil && students[studentIndex].shifts[periodIndex].paperwork == nil {
             students[studentIndex].shifts[periodIndex].paperwork = Student().paperwork
         }
@@ -249,5 +287,29 @@ extension Database {
         let occupied = occupiedPlaces(company.id)
         guard let capacity = company.capacity else { return "Plazas sin indicar · \(occupied) asignadas" }
         return "\(occupied)/\(capacity) ocupadas · \(max(0, capacity - occupied)) libres"
+    }
+}
+
+struct CourseMonth {
+    let start: Date
+    let days: [Date]
+    let leadingBlanks: Int
+
+    init(containing date: Date) {
+        let start = cal.dateInterval(of: .month, for: date)!.start
+        self.start = start
+        leadingBlanks = (cal.component(.weekday, from: start) + 5) % 7
+        let count = cal.range(of: .day, in: .month, for: start)!.count
+        days = (0..<count).map { cal.date(byAdding: .day, value: $0, to: start)! }
+    }
+
+    static func includes(_ date: Date, in exclusion: Exclusion) -> Bool {
+        let day = cal.startOfDay(for: date)
+        return day >= cal.startOfDay(for: exclusion.from) && day <= cal.startOfDay(for: exclusion.to)
+    }
+
+    static func isWeekend(_ date: Date) -> Bool {
+        let weekday = cal.component(.weekday, from: date)
+        return weekday == 1 || weekday == 7
     }
 }

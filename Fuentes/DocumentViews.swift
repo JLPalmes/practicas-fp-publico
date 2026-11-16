@@ -21,11 +21,7 @@ struct DocumentTimeline: View {
     @Binding var flow: DocumentFlow
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(flow.kind.title).font(.headline)
-                Spacer()
-                Text("\(flow.completedCount)/\(flow.milestones.count)").foregroundStyle(.secondary)
-            }
+            Text(flow.kind.title).font(.headline)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), alignment: .topLeading)], alignment: .leading, spacing: 8) {
                 ForEach(flow.kind.stages, id: \.0) { stage in
                     Toggle(isOn: Binding(get: { flow.done(stage.0) }, set: { value in
@@ -61,9 +57,10 @@ struct PracticePeriodsEditor: View {
     @Binding var s: Student
     var openCompany: (UUID) -> Void
     var openTutor: (UUID) -> Void
+    var displayedPeriodID: UUID
     var body: some View {
         let periods = store.db.practicePeriods(for: s)
-        ForEach(Array(periods.enumerated()), id: \.element.id) { offset, period in
+        ForEach(Array(periods.enumerated()).filter { $0.element.id == displayedPeriodID }, id: \.element.id) { offset, period in
             VStack(alignment: .leading, spacing: 12) {
                 Text("Práctica \(offset + 1) · " + (store.db.companies.first { $0.id == period.companyID }?.name ?? "Sin empresa")).font(.headline)
                 Text("\(period.from.map(dateText) ?? "Inicio sin establecer") → \(period.end.map(dateText) ?? "Fin sin calcular")").font(.callout).foregroundStyle(.secondary)
@@ -84,16 +81,13 @@ struct PracticePeriodsEditor: View {
                         Text("Sin asignar").tag(nil as UUID?)
                         ForEach(store.db.companies) { company in Text(company.name).tag(Optional(company.id)).disabled(!store.db.canAssign(s.id, to: company.id)) }
                     }
-                    Picker("Estado de asignación", selection: $s.assignment) {
-                        Text("Pendiente").tag("Pendiente")
-                        if s.companyID != nil { Text("Provisional").tag("Provisional"); Text("Definitiva").tag("Definitiva") }
-                    }
                     Picker("Tutor", selection: $s.tutorID) {
                         Text("Sin asignar").tag(nil as UUID?)
                         ForEach(store.db.tutors.filter { s.companyID != nil && $0.companyID == s.companyID }) { Text($0.name).tag(Optional($0.id)) }
                     }
                     Checklist(items: $s.paperwork, only: [0,5,6])
                 }
+                assignmentControl(for: period)
                 if let id = period.companyID { Button("Abrir ficha de empresa") { openCompany(id) } }
                 if let id = period.tutorID { Button("Abrir ficha del tutor") { openTutor(id) } }
                 ForEach(period.changes) { change in
@@ -109,22 +103,52 @@ struct PracticePeriodsEditor: View {
                 StudentDocuments(studentID: s.id, periodID: period.shiftID)
             }.padding(8).background(accent.opacity(0.04)).clipShape(RoundedRectangle(cornerRadius: 12))
         }
-        Menu("Añadir periodo o cambio de jornada") {
-            Button("Cambio de jornada en la misma empresa") { appendShift(companyID: nil) }
-            ForEach(store.db.companies) { company in
-                Button("Nueva práctica en " + company.name) { appendShift(companyID: company.id) }
-                    .disabled(!store.db.companyIDs(for: s).contains(company.id) && !store.db.canAssign(s.id, to: company.id))
+        if periods.last?.id == displayedPeriodID {
+            Button("Añadir cambio de jornada") { appendShift(companyID: nil) }
+            Menu("Añadir periodo · nueva práctica") {
+                ForEach(store.db.companies) { company in
+                    Button(company.name.nonEmpty ?? "Empresa sin nombre") { appendShift(companyID: company.id) }
+                }
+            }.disabled(store.db.companies.isEmpty)
+        }
+    }
+    @ViewBuilder private func assignmentControl(for period: PracticePeriod) -> some View {
+        if s.isPreviousPeriod(period.shiftID) || s.requiresDefinitiveAssignment(period.shiftID) {
+            LabeledContent("Estado de asignación", value: s.periodAssignment(period.shiftID))
+        } else {
+            Picker("Estado de asignación", selection: Binding(
+                get: { s.periodAssignment(period.shiftID) },
+                set: { value in
+                    guard !s.isPreviousPeriod(period.shiftID), !s.requiresDefinitiveAssignment(period.shiftID) else { return }
+                    if let shiftID = period.shiftID {
+                        if let index = s.shifts.firstIndex(where: { $0.id == shiftID }) {
+                            s.shifts[index].assignment = value
+                        }
+                    } else {
+                        s.assignment = value
+                    }
+                }
+            )) {
+                Text("Pendiente").tag("Pendiente")
+                if period.companyID != nil {
+                    Text("Provisional").tag("Provisional")
+                    Text("Definitiva").tag("Definitiva")
+                }
             }
         }
     }
+
     private func appendShift(companyID: UUID?) {
-        var date = max(cal.startOfDay(for: Date()), cal.startOfDay(for: s.start))
-        while s.shifts.contains(where: { cal.isDate($0.from, inSameDayAs: date) }) { date = cal.date(byAdding: .day, value: 1, to: date)! }
+        guard store.db.practicePeriods(for: s).last?.id == displayedPeriodID else { return }
+        let latest = ([s.start] + s.shifts.map(\.from)).max() ?? s.start
+        let nextDay = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: latest))!
+        let date = max(cal.startOfDay(for: Date()), nextDay)
         let period = Shift(from: date)
         var updated = store.db
         guard let i = updated.students.firstIndex(where: { $0.id == s.id }) else { return }
         updated.students[i].shifts.append(period)
-        if companyID != nil && !updated.assignPeriod(s.id, periodID: period.id, to: companyID) { store.error = "No hay plazas disponibles para este periodo."; return }
+        if companyID != nil && !updated.assignPeriod(s.id, periodID: period.id, to: companyID) { store.error = "Para asignar esta empresa, debe figurar como admitida y tener plazas libres. Revisa su ficha en Empresas."; return }
+        updated.students[i].confirmStartedAndPreviousPeriods()
         store.db = updated
     }
 }
@@ -200,5 +224,185 @@ struct BackupRestoreView: View {
             }
             Button("Cancelar", role: .cancel) {}
         }
+    }
+}
+
+struct Format5ReviewView: View {
+    @Environment(\.dismiss) private var dismiss
+    @LocalState private var copy: Format5Preview?
+    @LocalState private var selected: UUID?
+    @LocalState private var error: String?
+    @LocalState private var dirty = false
+    @LocalState private var discard = false
+    @LocalState private var editing: Format5Period?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Consultar copia de la serie 2").font(.title2.bold())
+            Text("Edita el horario y guarda los cambios en un archivo nuevo.")
+                .foregroundStyle(.secondary)
+            HStack {
+                Button("Elegir copia JSON…", action: chooseCopy).disabled(dirty)
+                Button("Guardar copia nueva…", action: saveCopy).disabled(!dirty)
+                Spacer()
+                Button("Cerrar") { if dirty { discard = true } else { dismiss() } }
+            }
+            if let error {
+                Text(error).foregroundStyle(.red)
+            }
+            if let copy {
+                Text(copy.calendar.course + " · " + copy.calendar.institute).font(.headline)
+                if copy.students.isEmpty {
+                    ContentUnavailableView("La copia no contiene alumnas", systemImage: "person.2")
+                } else {
+                    HSplitView {
+                        List(selection: $selected) {
+                            ForEach(copy.calendar.students) { student in
+                                Text(student.name.nonEmpty ?? "Alumna sin nombre").tag(student.id)
+                            }
+                        }.frame(minWidth: 220)
+                        if let student = copy.students.first(where: { $0.id == selected }) {
+                            detail(student, in: copy.calendar).frame(minWidth: 360)
+                        }
+                    }
+                }
+            } else {
+                ContentUnavailableView("Elige una copia de Windows de la serie 2", systemImage: "doc")
+            }
+            Spacer(minLength: 0)
+        }.padding(20).frame(width: 780, height: 540)
+        .interactiveDismissDisabled(dirty)
+        .confirmationDialog("¿Descartar los cambios de la copia?", isPresented: $discard) {
+            Button("Descartar cambios", role: .destructive) { dismiss() }
+            Button("Cancelar", role: .cancel) {}
+        }
+        .sheet(item: $editing) { period in
+            if let id = selected {
+                Format5ScheduleEditor(period: period) { edit in
+                    guard let copy else { throw CocoaError(.fileReadUnknown) }
+                    self.copy = try copy.editingSchedule(studentID: id, periodID: period.id, edit: edit)
+                    dirty = true
+                    error = nil
+                }
+            }
+        }
+    }
+
+    private func chooseCopy() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let loaded = try Format5Preview(data: Data(contentsOf: url))
+            copy = loaded
+            selected = loaded.students.first?.id
+            error = nil
+            dirty = false
+        } catch {
+            copy = nil
+            selected = nil
+            self.error = "No se ha podido leer la copia. Elige un archivo JSON válido en formato 5."
+        }
+    }
+
+    private func saveCopy() {
+        guard let copy else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "PracticasFP-serie-2.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try copy.original.write(to: url, options: .withoutOverwriting)
+            dirty = false
+            error = nil
+        } catch {
+            self.error = "No se ha guardado la copia. Comprueba que el nombre sea nuevo y que la carpeta permita escribir."
+        }
+    }
+
+    private func detail(_ student: Format5Student, in db: Database) -> some View {
+        Form {
+            if let periods = student.practicePeriods {
+                let forecasts = student.forecasts(in: db, today: Date())
+                let elapsed = forecasts.reduce(0) { $0 + $1.elapsed }
+                Section("Horas del curso") {
+                    hours("Objetivo general", student.targetHours ?? 500)
+                    hours("Curso anterior", student.previousCourseHours ?? 0)
+                    hours("Previstas hasta ayer", elapsed)
+                    hours("Restantes del objetivo", student.remainingHours(elapsed: elapsed))
+                    hours("Anotadas para el siguiente curso", student.nextCourseHours ?? 0)
+                }
+                ForEach(Array(periods.enumerated()), id: \.element.id) { index, period in
+                    Section(index == 0 ? "Primer periodo" : "Segundo periodo") {
+                        if period.active {
+                            let result = forecasts[index]
+                            LabeledContent("Empresa", value: db.companies.first { $0.id == period.companyID }?.name ?? "Sin empresa")
+                            LabeledContent("Tutor", value: db.tutors.first { $0.id == period.tutorID }?.name ?? "Sin tutor")
+                            LabeledContent("Inicio", value: period.hasStart ? dateText(period.start) : "Sin registrar")
+                            LabeledContent("Fin", value: result.end.map(dateText) ?? "Sin calcular")
+                            hours("Objetivo del periodo", period.targetHours)
+                            hours("Jornada inicial", period.hours)
+                            hours("Previstas hasta ayer", result.elapsed)
+                            if let problem = result.error { Text(problem).foregroundStyle(.orange) }
+                            Button("Editar horario y fechas…") { editing = period }
+                        } else {
+                            Text("Periodo inactivo").foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            } else {
+                Text("Esta ficha conserva la estructura anterior. Aún no se ha convertido a dos periodos.")
+                    .foregroundStyle(.secondary)
+            }
+        }.formStyle(.grouped)
+    }
+
+    private func hours(_ label: String, _ value: Double) -> some View {
+        LabeledContent(label, value: value.formatted(.number.precision(.fractionLength(0...2))) + " h")
+    }
+}
+
+private struct Format5ScheduleEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @LocalState private var edit: Format5ScheduleEdit
+    @LocalState private var invalid = false
+    let apply: (Format5ScheduleEdit) throws -> Void
+
+    init(period: Format5Period, apply: @escaping (Format5ScheduleEdit) throws -> Void) {
+        _edit = State(initialValue: Format5ScheduleEdit(period))
+        self.apply = apply
+    }
+
+    var body: some View {
+        Form {
+            Section("Horario y fechas del periodo") {
+                Toggle("Inicio establecido", isOn: $edit.hasStart)
+                if edit.hasStart {
+                    DatePicker("Inicio", selection: $edit.start, displayedComponents: .date)
+                }
+                Toggle("Ajustar fin manualmente", isOn: $edit.manualEnd)
+                if edit.manualEnd {
+                    DatePicker("Fin", selection: $edit.end, displayedComponents: .date)
+                }
+                TextField("Horas diarias iniciales", value: $edit.hours, format: .number)
+                TextField("Horas objetivo", value: $edit.targetHours, format: .number)
+                if invalid {
+                    Text("Revisa las fechas y las horas. La jornada debe ser mayor que cero y como máximo de 24 h. El objetivo debe estar entre 0 y 10.000 h y solo puede ser cero con un fin manual.")
+                        .foregroundStyle(.red)
+                }
+            }
+            HStack {
+                Button("Cancelar") { dismiss() }
+                Spacer()
+                Button("Aplicar") {
+                    do {
+                        try apply(edit)
+                        dismiss()
+                    } catch {
+                        invalid = true
+                    }
+                }.buttonStyle(.borderedProminent)
+            }
+        }.formStyle(.grouped).toggleStyle(.checkbox).frame(width: 480, height: 360)
     }
 }

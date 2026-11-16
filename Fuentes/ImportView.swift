@@ -41,7 +41,7 @@ struct ImportView: View {
                 Button("Elegir archivo…", action: choose).disabled(loading)
             }
             if let source { Text(source.lastPathComponent).font(.headline).textSelection(.enabled) }
-            if loading { ProgressView("Leyendo archivo…") }
+            if loading { Text("Leyendo archivo…").foregroundStyle(.secondary) }
             if let error { Text(error).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true) }
             if let book, let sheet {
                 HStack {

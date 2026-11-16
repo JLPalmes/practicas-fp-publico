@@ -41,7 +41,6 @@ enum ReportPDF {
     do {
         try ReportPDF.data(for: text).write(to: url, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
-        NSWorkspace.shared.activateFileViewerSelecting([url])
     } catch { let alert = NSAlert(); alert.messageText = "No se ha guardado el PDF"; alert.informativeText = error.localizedDescription; alert.runModal() }
 }
 @MainActor func printReport(_ text: String) {

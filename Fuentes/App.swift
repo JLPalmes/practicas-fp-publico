@@ -198,71 +198,43 @@ struct RootView: View {
         get { navigation.search }
         nonmutating set { navigation.search = newValue }
     }
-    @LocalState private var companyPanelFilter: CompanyPanelFilter = .all
-    @LocalState<String> private var assignment = "Todas"
-    @LocalState<UUID?> private var companyFilter: UUID?
-    @LocalState<String> private var groupFilter = ""
-    @LocalState<Bool> private var pendingOnly = false
     @LocalState<Bool> private var importing = false
     @LocalState private var restoring = false
-    @LocalState private var workFilter: StudentWorkFilter = .all
+    @LocalState private var reviewingFormat5 = false
     var body: some View {
-        NavigationSplitView {
-            VStack(alignment: .leading, spacing: 12) {
-                Label("Prácticas FP", systemImage: "leaf.fill").font(.title2.bold()).foregroundStyle(accent).padding(.top, 6)
-                Text(store.db.institute).font(.caption).foregroundStyle(.secondary)
-                ForEach([("Alumnas","person.2"),("Empresas","building.2"),("Tutores","person.crop.rectangle"),("Calendario","calendar"),("Ajustes y copias","gearshape")], id: \.0) { item in
-                    Button { page = item.0; store.endEditingGroup() } label: {
-                        Label(item.0, systemImage: item.1).frame(maxWidth: .infinity, alignment: .leading).padding(8)
-                            .background(page == item.0 ? accent.opacity(0.14) : .clear).clipShape(RoundedRectangle(cornerRadius: 9))
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                ForEach(["Alumnas", "Empresas", "Tutores", "Calendario"], id: \.self) { section in
+                    Button {
+                        page = section
+                        store.endEditingGroup()
+                    } label: {
+                        Text(section).padding(.horizontal, 10).padding(.vertical, 7)
+                            .background(page == section ? accent.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 7))
+                            .contentShape(Rectangle())
                     }.buttonStyle(.plain)
+                        .accessibilityAddTraits(page == section ? .isSelected : [])
                 }
                 Spacer()
-                Label("Solo en este Mac", systemImage: "internaldrive").font(.caption).foregroundStyle(.secondary)
-                Text(store.status).font(.caption2).foregroundStyle(.secondary)
-                Text(AppIdentity.versionLabel).font(.caption2).foregroundStyle(.secondary)
-                    .help("Versión de la copia de Prácticas FP que está abierta")
-            }.padding(12).navigationSplitViewColumnWidth(min: 180, ideal: 190, max: 220)
-        } detail: {
-            VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(page).font(.title2.bold())
-                        Text("Seguimiento en empresa · \(store.db.course)").foregroundStyle(.secondary)
-                    }
-                    HStack {
-                    Button { store.undo() } label: { Label("Deshacer", systemImage: "arrow.uturn.backward") }.disabled(!store.canUndo)
-                    Button { store.redo() } label: { Label("Rehacer", systemImage: "arrow.uturn.forward") }.disabled(!store.canRedo)
+                Menu("Informes") {
                     if ["Alumnas", "Empresas"].contains(page) {
-                        Menu("Informe…") {
-                            Button("Guardar como texto…") { exportReport(currentReport) }
-                            Button("Guardar como PDF…") { savePDFReport(currentReport) }
-                            Button("Imprimir…") { printReport(currentReport) }
-                            Divider()
-                            Menu("Curso completo") {
-                                Button("Guardar como texto…") { exportReport(store.db.report()) }
-                                Button("Guardar como PDF…") { savePDFReport(store.db.report()) }
-                                Button("Imprimir…") { printReport(store.db.report()) }
-                            }
-                        }
+                        Menu("Ficha seleccionada") { reportActions(currentReport) }
                     }
-                    if page == "Alumnas" {
-                        Button { importing = true } label: { Label("Importar CSV / Excel", systemImage: "square.and.arrow.down") }
-                    }
-                    if ["Alumnas","Empresas","Tutores"].contains(page) {
-                        Button(action: add) { Label("Añadir", systemImage: "plus") }.buttonStyle(.borderedProminent)
-                    }
-                    }
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
-                Divider()
-                switch page {
-                case "Alumnas", "Empresas", "Tutores": unifiedWorkspace
-                case "Calendario": CalendarView()
-                default: settings
+                    Menu("Curso completo") { reportActions(store.db.report()) }
                 }
-            }.background(Color(nsColor: .windowBackgroundColor))
-        }
+                Button("Datos y copias") { page = "Ajustes y copias"; store.endEditingGroup() }
+                    .accessibilityAddTraits(page == "Ajustes y copias" ? .isSelected : [])
+                Text(AppIdentity.versionLabel).font(.caption).foregroundStyle(.secondary)
+            }.padding(10)
+            Divider()
+            switch page {
+            case "Alumnas", "Empresas", "Tutores": unifiedWorkspace
+            case "Calendario": CalendarView()
+            default: settings
+            }
+        }.background(Color(nsColor: .windowBackgroundColor))
         .sheet(isPresented: $importing) { ImportView().environmentObject(store) }
+        .sheet(isPresented: $reviewingFormat5) { Format5ReviewView() }
         .sheet(isPresented: $restoring) { BackupRestoreView().environmentObject(store) }
         .onAppear { ensureWorkspaceSelection() }
         .onChange(of: page) { _, _ in ensureWorkspaceSelection() }
@@ -272,6 +244,7 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSControl.textDidEndEditingNotification)) { _ in store.endEditingGroup() }
         .onReceive(NotificationCenter.default.publisher(for: NSText.didEndEditingNotification)) { _ in store.endEditingGroup() }
         .tint(accent)
+        .toggleStyle(.checkbox)
         .disclosureGroupStyle(WideDisclosureStyle())
         .frame(minWidth: 900, minHeight: 620)
         .alert("Aviso", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) { Button("Aceptar") { store.error = nil } } message: { Text(store.error ?? "") }
@@ -295,77 +268,37 @@ struct RootView: View {
         }
         return ids.isEmpty ? "Sin empresa" : ids.map { company($0) }.joined(separator: " → ")
     }
-    func progress(_ student: Student) -> (done: Int, total: Int) {
-        var done = [0,5,6].filter { student.paperwork[$0].done }.count + (student.tutorID == nil ? 0 : 1)
-        var total = 4
-        for kind in [DocumentKind.annexI, .annexII] { let flow = student.document(kind); done += flow.completedCount; total += flow.milestones.count }
-        for period in student.shifts where period.companyID != nil {
-            for kind in [DocumentKind.annexI, .annexII] { let flow = student.document(kind, periodID: period.id); done += flow.completedCount; total += flow.milestones.count }
-            done += period.tutorID == nil ? 0 : 1; total += 3
-            let paperwork = period.paperwork ?? steps(studentPaperworkTitles)
-            done += [5,6].filter { paperwork[$0].done }.count
-        }
-        return (done, total)
+    @ViewBuilder private func reportActions(_ report: @autoclosure @escaping () -> String) -> some View {
+        Button("Guardar como texto…") { exportReport(report()) }
+        Button("Guardar como PDF…") { savePDFReport(report()) }
+        Button("Imprimir…") { printReport(report()) }
     }
-    var filtered: [Student] {
-        store.db.students.filter { student in
-            (search.isEmpty || student.name.localizedCaseInsensitiveContains(search)) &&
-            (assignment == "Todas" || student.assignment == assignment) &&
-            (companyFilter == nil || companyFilter.map { store.db.companyIDs(for: student).contains($0) } == true) &&
-            (groupFilter.isEmpty || student.group.localizedCaseInsensitiveContains(groupFilter)) &&
-            (!pendingOnly || progress(student).done < progress(student).total) && store.db.matches(student, workFilter: workFilter)
-        }
-    }
+
     var dashboard: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 10) {
-                    metric("Alumnas", "\(store.db.students.count)", "person.2")
-                    metric("Asignación definitiva", "\(store.db.students.filter { $0.assignment == "Definitiva" }.count)", "building.2")
-                    metric("Práctica iniciada", "\(store.db.students.filter { $0.latestPracticePaperwork[5].done && !$0.latestPracticePaperwork[6].done }.count)", "clock")
-                    metric("Terminadas", "\(store.db.students.filter { $0.latestPracticePaperwork[6].done }.count)", "checkmark.circle")
+        let students = store.db.students.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("Buscar alumna", text: Binding(get: { search }, set: { search = $0 })).textFieldStyle(.roundedBorder)
+                Button("Importar alumnas…") { importing = true }
+                if students.isEmpty && !search.isEmpty {
+                    Text("No hay alumnas que coincidan.").foregroundStyle(.secondary)
                 }
-                if !store.db.instituteDaysConfirmed {
-                    Label("Pendiente: añadir los días de libre disposición del instituto. Las fechas de fin son provisionales.", systemImage: "calendar.badge.exclamationmark").font(.callout).foregroundStyle(.orange)
+                ForEach(students) { student in
+                    Button { open("Alumnas", student.id) } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(student.name.nonEmpty ?? "Alumna sin nombre").font(.headline)
+                            Text(companies(student)).font(.callout).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(selected == student.id ? accent.opacity(0.15) : Color(nsColor: .controlBackgroundColor),
+                                    in: RoundedRectangle(cornerRadius: 7))
+                        .contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                        .accessibilityAddTraits(selected == student.id ? .isSelected : [])
                 }
-                VStack(alignment: .leading) {
-                    TextField("Buscar alumna", text: Binding(get: { search }, set: { search = $0 })).textFieldStyle(.roundedBorder)
-                    Picker("Asignación", selection: $assignment) { ForEach(["Todas","Pendiente","Provisional","Definitiva"], id: \.self) { Text($0) } }.frame(maxWidth: .infinity)
-                    Picker("Empresa", selection: $companyFilter) { Text("Todas").tag(nil as UUID?); ForEach(store.db.companies) { Text($0.name).tag(Optional($0.id)) } }.frame(maxWidth: .infinity)
-                }
-                Picker("Necesita atención", selection: $workFilter) {
-                    ForEach(StudentWorkFilter.allCases) { filter in
-                        Text("\(filter.rawValue) (\(store.db.students.filter { store.db.matches($0, workFilter: filter) }.count))").tag(filter)
-                    }
-                }
-                VStack(alignment: .leading, spacing: 8) { TextField("Filtrar por grupo", text: $groupFilter).textFieldStyle(.roundedBorder); Toggle("Solo con trámites pendientes", isOn: $pendingOnly) }
-                if store.db.students.isEmpty {
-                    Text("Todavía no hay alumnas. Añade la primera desde la columna de ficha.").foregroundStyle(.secondary)
-                } else if filtered.isEmpty { Text("No hay alumnas que coincidan con los filtros.").foregroundStyle(.secondary) }
-                LazyVStack(alignment: .leading, spacing: 10) {
-                ForEach(filtered) { s in
-                    let c = calculate(s, store.db)
-                    let documentProgress = progress(s)
-                    Button { open("Alumnas", s.id) } label: {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack { Text(s.name.isEmpty ? "Alumna sin nombre" : s.name).font(.headline); Spacer(); Text(s.assignment).font(.caption.bold()).padding(.horizontal, 6).padding(.vertical, 3).background(accent.opacity(0.1)).clipShape(Capsule()) }
-                            Text("\(companies(s)) · \(s.group)").foregroundStyle(.secondary)
-                            VStack(alignment: .leading, spacing: 10) {
-                                VStack(alignment: .leading) { Text("Trámites · \(documentProgress.done)/\(documentProgress.total)"); ProgressView(value: Double(documentProgress.done), total: Double(documentProgress.total)) }
-                                VStack(alignment: .leading) { Text("Horas previstas hasta ayer · \(c.elapsed, specifier: "%.1f")/\(s.requiredHours, specifier: "%.0f")"); ProgressView(value: c.elapsed, total: max(1, s.requiredHours)) }
-                                VStack(alignment: .leading) { Text("Fin \(s.manualEnd ? "ajustado" : "previsto")").font(.caption).foregroundStyle(.secondary); Text(s.hasStart ? (c.end.map { dateText(s.manualEnd ? s.end : $0) } ?? "Revisar jornada") : "Sin fecha de inicio").bold() }.frame(width: 170, alignment: .leading)
-                            }.font(.callout)
-                            if s.assignment != "Definitiva" { Text("Preferencias: \(s.preferredType.isEmpty ? "tipo pendiente" : s.preferredType) · \(s.preferredZone.isEmpty ? "zona pendiente" : s.preferredZone)").font(.caption).foregroundStyle(.secondary) }
-                        }.padding(12).background(.background).clipShape(RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(selected == s.id ? accent : .clear, lineWidth: 2))
-                    }.buttonStyle(.plain).id(s.id)
-                }
-                }.scrollTargetLayout()
             }.padding(10).background(ScrollMemory(read: { navigation.scrollOffsets["Alumnas"] ?? 0 }, write: { navigation.scrollOffsets["Alumnas"] = $0 }))
         }
-    }
-    func metric(_ title: String, _ value: String, _ icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) { Label(title, systemImage: icon).font(.caption).foregroundStyle(.secondary); Text(value).font(.title.bold()) }.frame(maxWidth: .infinity, alignment: .leading).padding(10).background(.background).clipShape(RoundedRectangle(cornerRadius: 10))
     }
     var selectedTitle: String {
         if page == "Alumnas" { return store.db.students.first { $0.id == selected }?.name.nonEmpty ?? "Alumna sin nombre" }
@@ -373,7 +306,7 @@ struct RootView: View {
         return store.db.companies.first { $0.id == selected }?.name.nonEmpty ?? "Empresa sin nombre"
     }
     var selectedSubtitle: String {
-        if let student = store.db.students.first(where: { page == "Alumnas" && $0.id == selected }) { return companies(student) + " · " + student.assignment }
+        if let student = store.db.students.first(where: { page == "Alumnas" && $0.id == selected }) { return companies(student) }
         if let company = store.db.companies.first(where: { $0.id == selected }) { return (company.response ?? .uncontacted).title + " · " + store.db.placesLabel(company) }
         if page == "Tutores", let tutor = store.db.tutors.first(where: { $0.id == selected }) {
             return company(tutor.companyID) + " · \(store.db.students(tutoredBy: tutor.id).count) alumnas"
@@ -392,16 +325,22 @@ struct RootView: View {
             if page == "Alumnas" { studentPanelWidth = value } else if page == "Empresas" { companyPanelWidth = value } else { tutorPanelWidth = value }
         })
         HStack(spacing: 0) {
-            Group {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(page).font(.headline)
+                    HStack(spacing: 6) {
+                        Button("Añadir", action: add).buttonStyle(.borderedProminent)
+                        Button("Deshacer") { store.undo() }.disabled(!store.canUndo)
+                        Button("Rehacer") { store.redo() }.disabled(!store.canRedo)
+                    }
+                }.padding(10)
                 if page == "Alumnas" { dashboard }
                 else if page == "Tutores" { tutorsList }
                 else {
                     CompaniesDashboard(
                         openCompany: { open("Empresas", $0) },
-                        openStudent: { open("Alumnas", $0) },
                         selectedCompany: selected,
                         search: navigation.searchBinding(for: "Empresas"),
-                        filter: $companyPanelFilter,
                         navigation: navigation)
                 }
             }.frame(width: min(maximum, max(300, width.wrappedValue)))
@@ -480,6 +419,7 @@ struct RootView: View {
                 Button("Guardar copia de seguridad…") { store.manualBackup() }
                 if let message = store.backupMessage { Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(accent).textSelection(.enabled) }
                 Button("Mostrar copias automáticas") { NSWorkspace.shared.open(store.backups) }
+                Button("Consultar copia de la serie 2…") { reviewingFormat5 = true }
                 Button("Restaurar una copia…") { restoring = true }
                 Button("Mostrar carpeta de datos") { NSWorkspace.shared.open(store.folder) }
             }
@@ -494,45 +434,126 @@ struct StudentEditor: View {
     var openCompany: (UUID) -> Void
     var openTutor: (UUID) -> Void
     var result: Calculation { calculate(s, store.db) }
+    @LocalState private var tab = "personal"
     var body: some View {
+        let periods = store.db.practicePeriods(for: s)
+        let tabs = [("personal", "Datos personales"), ("preferences", "Preferencias"), ("hours", "Horas")]
+            + periods.enumerated().map { ($0.element.id.uuidString, periodTabTitle($0.offset)) }
+        VStack(spacing: 0) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { tabButtons(tabs) }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), alignment: .leading)], alignment: .leading) {
+                    tabButtons(tabs)
+                }
+            }.padding(.horizontal, 12).padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Divider()
+            switch tab {
+            case "preferences":
+                Form {
+                    Section("Preferencias para la asignación") {
+                        TextField("Tipo de empresa", text: $s.preferredType)
+                        TextField("Zona de la ciudad", text: $s.preferredZone)
+                        Notes(title: "Detalle de preferencias", text: $s.preferences)
+                        Notes(text: $s.notes)
+                    }
+                }.formStyle(.grouped)
+            case "hours":
+                Form {
+                    Section("Registro global de horas") {
+                        TextField("Objetivo general", value: Binding(get: { s.requiredHours }, set: { s.targetHours = $0 }), format: .number)
+                        TextField("Cumplidas el curso anterior", value: courseHours(\.previousCourseHours), format: .number)
+                        TextField("Para el curso siguiente", value: courseHours(\.nextCourseHours), format: .number)
+                        LabeledContent("Previstas hasta ayer", value: formattedHours(result.elapsed))
+                        LabeledContent("Restantes del objetivo", value: formattedHours(s.remainingHours(after: result.elapsed)))
+                    }
+                    Section("Horario y previsión") {
+                        TextField("Horas diarias iniciales", value: $s.hours, format: .number)
+                        Toggle("Fecha de inicio establecida", isOn: $s.hasStart)
+                        if s.hasStart {
+                            DatePicker("Inicio", selection: $s.start, displayedComponents: .date)
+                            calculation
+                        }
+                    }
+                }.formStyle(.grouped)
+            default:
+                if let period = periods.first(where: { $0.id.uuidString == tab }) {
+                    Form {
+                        PracticePeriodsEditor(s: $s, openCompany: openCompany, openTutor: openTutor, displayedPeriodID: period.id)
+                    }.formStyle(.grouped).id(period.id)
+                } else {
+                    personal
+                }
+            }
+        }
+        .onChange(of: periods.map(\.id)) { _, ids in
+            if let selected = UUID(uuidString: tab), !ids.contains(selected) { tab = ids.first?.uuidString ?? "personal" }
+        }
+        .onChange(of: s.hasStart) { _, _ in confirmAssignments() }
+        .onChange(of: s.start) { _, _ in confirmAssignments() }
+        .onChange(of: s.shifts.map(\.from)) { _, _ in confirmAssignments() }
+        .onChange(of: tab) { _, _ in store.endEditingGroup() }
+    }
+
+    private func confirmAssignments() {
+        var updated = s
+        updated.confirmStartedAndPreviousPeriods()
+        if updated != s { s = updated }
+    }
+
+    private func courseHours(_ key: WritableKeyPath<Student, Double?>) -> Binding<Double> {
+        Binding(get: { s[keyPath: key] ?? 0 }, set: { value in
+            if value.isFinite && value >= 0 { s[keyPath: key] = value }
+        })
+    }
+
+    private func formattedHours(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0...2))) + " h"
+    }
+
+    private func tabButtons(_ tabs: [(String, String)]) -> some View {
+        ForEach(tabs, id: \.0) { id, title in
+            Button { tab = id } label: {
+                Text(title).font(.callout)
+                    .padding(.horizontal, 5).padding(.vertical, 7)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(tab == id ? accent : .clear).frame(height: 2)
+                    }
+                    .contentShape(Rectangle())
+            }.buttonStyle(.plain)
+                .accessibilityAddTraits(tab == id ? .isSelected : [])
+        }
+    }
+
+    private func periodTabTitle(_ index: Int) -> String {
+        switch index {
+        case 0: "Primer periodo"
+        case 1: "Segundo periodo"
+        default: "Periodo \(index + 1)"
+        }
+    }
+
+    private var personal: some View {
         Form {
-            if !store.db.validationMessages(for: s).isEmpty {
+            let messages = store.db.validationMessages(for: s)
+            if !messages.isEmpty {
                 Section("Revisar datos") {
-                    ForEach(store.db.validationMessages(for: s), id: \.self) { message in
+                    ForEach(messages, id: \.self) { message in
                         Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
                     }
                 }
             }
-            FoldableSection("student.data", "Datos de la alumna", initiallyExpanded: true) {
-                TextField("Nombre y apellidos", text: $s.name); TextField("Grupo", text: $s.group)
+            Section("Datos de la alumna") {
+                TextField("Nombre y apellidos", text: $s.name)
+                TextField("Grupo", text: $s.group)
                 FieldPair {
                     TextField("DNI / NIE", text: $s.dni)
                     TextField("NUSS", text: $s.nuss)
                 }
                 ContactFields(phone: $s.phone, email: $s.email)
             }
-            FoldableSection("student.preferences", s.assignment == "Definitiva" ? "Preferencias conservadas · referencia ante quejas" : "Preferencias para la asignación") {
-                TextField("Tipo de empresa", text: $s.preferredType); TextField("Zona de la ciudad", text: $s.preferredZone)
-                Notes(title: "Detalle de preferencias", text: $s.preferences)
-            }
-            FoldableSection("student.schedule", "Horario y previsión", initiallyExpanded: false) {
-                FieldPair {
-                    TextField("Horas diarias iniciales", value: $s.hours, format: .number)
-                    TextField("Horas objetivo", value: Binding(get: { s.requiredHours }, set: { s.targetHours = $0 }), format: .number)
-                }
-                Text("Por defecto, 500 horas. Puedes ajustarlas para esta alumna.").font(.caption).foregroundStyle(.secondary)
-                Toggle("Fecha de inicio establecida", isOn: $s.hasStart)
-                if s.hasStart {
-                    DatePicker("Inicio", selection: $s.start, displayedComponents: .date)
-                    calculation
-                }
-            }
-            FoldableSection("student.periods", "Periodos de práctica · empresas, jornadas y documentos", initiallyExpanded: true) {
-                PracticePeriodsEditor(s: $s, openCompany: openCompany, openTutor: openTutor)
-            }
-            FoldableSection("student.notes", "Observaciones") { Notes(text: $s.notes) }
             Section { DeleteButton(title: "Eliminar alumna") { store.db.students.removeAll { $0.id == s.id } } }
-        }.formStyle(.grouped).contentMargins(.horizontal, 8, for: .scrollContent).contentMargins(.vertical, 8, for: .scrollContent)
+        }.formStyle(.grouped)
     }
     @ViewBuilder var calculation: some View {
         if let error = result.error { Text(error).foregroundStyle(.red) }
@@ -592,7 +613,9 @@ struct CompanyEditor: View {
             }
             FoldableSection("company.followups", "Seguimiento mensual por empresa", initiallyExpanded: false) { CompanyFollowUps(companyID: c.id) }
             FoldableSection("company.tutors", "Tutores", initiallyExpanded: false) { ForEach(store.db.tutors.filter { $0.companyID == c.id }) { tutorLink($0) } }
-            FoldableSection("company.students", "Alumnas vinculadas", initiallyExpanded: true) { ForEach(store.db.students.filter { store.db.companyIDs(for: $0).contains(c.id) }) { student in Button("\(student.name) · \(student.assignment)") { openStudent(student.id) } } }
+            FoldableSection("company.students", "Alumnas vinculadas", initiallyExpanded: true) { ForEach(store.db.students.filter { store.db.companyIDs(for: $0).contains(c.id) }) { student in let statuses = store.db.practicePeriods(for: student).filter { $0.companyID == c.id }
+                    .map { student.periodAssignment($0.shiftID) }.joined(separator: " · ")
+                Button(student.name + " · " + statuses) { openStudent(student.id) } } }
             FoldableSection("company.notes", "Observaciones") { Notes(text: $c.notes) }
             Section {
                 if store.db.students.contains(where: { store.db.companyIDs(for: $0).contains(c.id) }) || store.db.tutors.contains(where: { $0.companyID == c.id }) { Text("Para eliminar esta empresa, desvincula primero sus alumnas y tutores.").font(.caption) }
@@ -640,30 +663,211 @@ struct DeleteButton: View {
 }
 struct CalendarView: View {
     @EnvironmentObject var store: Store
+    @LocalState private var month = Date()
+    @LocalState private var selectedDay: Date?
+    @LocalState private var selectedExclusion: UUID?
+    @LocalState private var addingExclusion = false
+
+    private var grid: CourseMonth { CourseMonth(containing: month) }
+    private var exclusions: [Exclusion] { store.db.exclusions.sorted { $0.from < $1.from } }
+
+    var body: some View {
+        HSplitView {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Días excluidos").font(.headline)
+                Button("Añadir día o intervalo") { addingExclusion = true }.buttonStyle(.borderedProminent)
+                List(selection: $selectedExclusion) {
+                    ForEach(exclusions) { item in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(item.title.nonEmpty ?? item.kind)
+                            Text(dateText(item.from) + " – " + dateText(item.to))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }.tag(item.id)
+                    }
+                }.listStyle(.plain)
+            }.padding(10).frame(minWidth: 220, idealWidth: 270, maxWidth: 320)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Calendario del curso").font(.title2.bold())
+                    monthView
+                    settings
+                    if let id = selectedExclusion, let item = exclusions.first(where: { $0.id == id }) {
+                        editor(for: item)
+                    }
+                }.padding(16).frame(maxWidth: 800)
+            }.frame(minWidth: 440)
+        }
+        .sheet(isPresented: $addingExclusion) {
+            NewExclusionView { item in
+                store.db.exclusions.append(item)
+                month = item.from
+                selectedDay = item.from
+                selectedExclusion = item.id
+            }
+        }
+        .onAppear {
+            let today = Date()
+            month = min(max(today, store.db.calendarFrom), max(store.db.calendarFrom, store.db.calendarTo))
+        }
+        .onChange(of: selectedExclusion) { _, id in
+            guard let item = exclusions.first(where: { $0.id == id }) else { return }
+            if let selectedDay, CourseMonth.includes(selectedDay, in: item) { return }
+            month = item.from
+            selectedDay = item.from
+        }
+    }
+
+    private var monthTitle: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "es_ES")
+        formatter.timeZone = cal.timeZone
+        formatter.setLocalizedDateFormatFromTemplate("MMMM yyyy")
+        return formatter.string(from: grid.start)
+    }
+
+    private var monthView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                monthButton("Mes anterior", icon: "chevron.left", offset: -1)
+                Spacer()
+                Text(monthTitle)
+                    .font(.headline)
+                Spacer()
+                monthButton("Mes siguiente", icon: "chevron.right", offset: 1)
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 7), spacing: 5) {
+                ForEach(["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"], id: \.self) {
+                    Text($0).font(.caption).foregroundStyle(.secondary)
+                }
+                ForEach(0..<grid.leadingBlanks, id: \.self) { _ in Color.clear.frame(height: 34) }
+                ForEach(grid.days, id: \.self, content: dayCell)
+            }
+            HStack(spacing: 16) {
+                Label("Día excluido", systemImage: "square.fill").foregroundStyle(.orange)
+                Label("Fin de semana", systemImage: "square.fill").foregroundStyle(.secondary)
+            }.font(.caption)
+            if let selectedDay {
+                Text(dateText(selectedDay)).font(.headline)
+                let items = exclusions.filter { CourseMonth.includes(selectedDay, in: $0) }
+                if items.isEmpty {
+                    Text(CourseMonth.isWeekend(selectedDay) ? "Fin de semana" : "Día lectivo")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(items) { item in
+                    Button(item.title.nonEmpty ?? item.kind) { selectedExclusion = item.id }
+                }
+            }
+        }.padding(12).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func monthButton(_ label: String, icon: String, offset: Int) -> some View {
+        Button {
+            if let next = cal.date(byAdding: .month, value: offset, to: grid.start) { month = next }
+            selectedDay = nil
+            selectedExclusion = nil
+        } label: { Image(systemName: icon).frame(width: 24, height: 24) }
+            .accessibilityLabel(label)
+    }
+
+    private func dayCell(_ date: Date) -> some View {
+        let excluded = exclusions.contains { CourseMonth.includes(date, in: $0) }
+        let weekend = CourseMonth.isWeekend(date)
+        let selected = selectedDay.map { cal.isDate($0, inSameDayAs: date) } ?? false
+        let fill = excluded ? Color.orange.opacity(0.28) : weekend ? Color.gray.opacity(0.19) : Color.gray.opacity(0.06)
+        return Button {
+            selectedDay = date
+            selectedExclusion = nil
+        } label: {
+            Text(String(cal.component(.day, from: date)))
+                .frame(maxWidth: .infinity, minHeight: 34)
+                .background(fill, in: RoundedRectangle(cornerRadius: 5))
+                .overlay(RoundedRectangle(cornerRadius: 5).stroke(selected ? accent : .clear, lineWidth: 2))
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain)
+            .accessibilityLabel(dateText(date) + (excluded ? ", excluido" : weekend ? ", fin de semana" : ""))
+            .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private var settings: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            DatePicker("Periodo revisado desde", selection: $store.db.calendarFrom, displayedComponents: .date)
+            DatePicker("Hasta", selection: $store.db.calendarTo, displayedComponents: .date)
+            Toggle("Días de libre disposición del instituto confirmados", isOn: $store.db.instituteDaysConfirmed)
+        }
+    }
+
+    private func editor(for item: Exclusion) -> some View {
+        let entry = Binding(get: { store.db.exclusions.first { $0.id == item.id } ?? item }, set: { value in
+            if let index = store.db.exclusions.firstIndex(where: { $0.id == item.id }) {
+                store.db.exclusions[index] = value
+            }
+        })
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Editar día o intervalo").font(.headline)
+            TextField("Descripción", text: entry.title)
+            Picker("Tipo", selection: entry.kind) {
+                ForEach(["Festivo", "Vacaciones", "Libre disposición"], id: \.self) { Text($0) }
+            }
+            DatePicker("Desde", selection: entry.from, displayedComponents: .date)
+            DatePicker("Hasta", selection: entry.to, displayedComponents: .date)
+            if cal.startOfDay(for: entry.wrappedValue.to) < cal.startOfDay(for: entry.wrappedValue.from) {
+                Text("La fecha final debe ser igual o posterior al inicio.").foregroundStyle(.red)
+            }
+            DeleteButton(title: "Eliminar día o intervalo") {
+                store.db.exclusions.removeAll { $0.id == item.id }
+                selectedExclusion = nil
+            }
+        }.padding(12).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+}
+private struct NewExclusionView: View {
+    @Environment(\.dismiss) private var dismiss
+    @LocalState private var title = ""
+    @LocalState private var kind: String?
+    @LocalState private var from = ""
+    @LocalState private var to = ""
+    let save: (Exclusion) -> Void
+
+    private var entry: Exclusion? {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "es_ES")
+        formatter.timeZone = cal.timeZone
+        formatter.dateFormat = "dd/MM/yyyy"
+        formatter.isLenient = false
+        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let first = from.trimmingCharacters(in: .whitespacesAndNewlines)
+        let last = to.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, let kind, let start = formatter.date(from: first),
+              formatter.string(from: start) == first else { return nil }
+        if last.isEmpty { return Exclusion(title: name, from: start, to: start, kind: kind) }
+        guard let end = formatter.date(from: last), formatter.string(from: end) == last,
+              end >= start else { return nil }
+        return Exclusion(title: name, from: start, to: end, kind: kind)
+    }
+
     var body: some View {
         Form {
-            Section("Calendario compartido · Las Palmas de Gran Canaria") {
-                Text("Sábados y domingos excluidos automáticamente. Los intervalos incluyen las fechas de inicio y final. Las exclusiones coincidentes se cuentan una sola vez.")
-                DatePicker("Periodo revisado desde", selection: $store.db.calendarFrom, displayedComponents: .date)
-                DatePicker("Hasta", selection: $store.db.calendarTo, displayedComponents: .date)
-                Toggle("Días de libre disposición del instituto ya incorporados", isOn: $store.db.instituteDaysConfirmed)
-                Text("Para otro año, incorpora sus festivos y vacaciones y actualiza el periodo revisado. No se repiten automáticamente las fechas.").font(.caption).foregroundStyle(.secondary)
-            }
-            Section("Días e intervalos excluidos") {
-                ForEach($store.db.exclusions) { $e in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack { TextField("Motivo", text: $e.title); Picker("Tipo", selection: $e.kind) { ForEach(["Festivo","Vacaciones","Libre disposición"], id: \.self) { Text($0) } }.frame(width: 230) }
-                        HStack {
-                            DatePicker("Desde", selection: $e.from, displayedComponents: .date)
-                            DatePicker("Hasta", selection: $e.to, displayedComponents: .date)
-                            Button(role: .destructive) { store.db.exclusions.removeAll { $0.id == e.id } } label: { Image(systemName: "trash") }.buttonStyle(.borderless)
-                        }
-                        if cal.startOfDay(for: e.to) < cal.startOfDay(for: e.from) { Text("La fecha final debe ser igual o posterior al inicio.").foregroundStyle(.red) }
-                    }.padding(.vertical, 4)
+            Section("Añadir día o intervalo") {
+                TextField("Descripción", text: $title)
+                Picker("Tipo", selection: $kind) {
+                    Text("Selecciona un tipo").tag(nil as String?)
+                    ForEach(["Festivo", "Vacaciones", "Libre disposición"], id: \.self) { Text($0).tag(Optional($0)) }
                 }
-                Button("Añadir día o intervalo") { store.db.exclusions.append(Exclusion(title: "Día del instituto")) }
+                TextField("Desde (dd/mm/aaaa)", text: $from)
+                TextField("Hasta (opcional, dd/mm/aaaa)", text: $to)
+                Text("Deja Hasta en blanco para un solo día.").font(.caption).foregroundStyle(.secondary)
             }
-        }.formStyle(.grouped)
+            HStack {
+                Button("Cancelar") { dismiss() }.keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Guardar") {
+                    guard let entry else { return }
+                    save(entry)
+                    dismiss()
+                }.keyboardShortcut(.defaultAction).disabled(entry == nil)
+            }
+        }.formStyle(.grouped).frame(width: 480, height: 320)
     }
 }
 final class AppDelegate: NSObject, NSApplicationDelegate {

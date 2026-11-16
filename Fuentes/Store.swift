@@ -135,6 +135,12 @@ import UniformTypeIdentifiers
         for i in db.students.indices {
             for j in db.students[i].paperwork.indices { db.students[i].paperwork[j].title = studentPaperworkTitles[j] }
             db.students[i].paperwork.reconcileAnnexes()
+            let previousAssignment = db.students[i].assignment
+            for j in db.students[i].shifts.indices
+                where db.students[i].shifts[j].companyID != nil && db.students[i].shifts[j].assignment == nil {
+                db.students[i].shifts[j].assignment = previousAssignment
+            }
+            db.students[i].confirmStartedAndPreviousPeriods()
             for j in db.students[i].shifts.indices where db.students[i].shifts[j].paperwork != nil {
                 for k in db.students[i].shifts[j].paperwork!.indices {
                     db.students[i].shifts[j].paperwork![k].title = studentPaperworkTitles[k]

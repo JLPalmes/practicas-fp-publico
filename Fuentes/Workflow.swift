@@ -62,12 +62,16 @@ extension Database {
         version = 2
     }
     func definitiveStudents(_ companyID: UUID) -> [Student] {
-        students.filter { companyIDs(for: $0).contains(companyID) && $0.assignment == "Definitiva" }
+        students.filter { student in
+            (student.companyID == companyID && student.periodAssignment(nil) == "Definitiva") ||
+                student.shifts.contains { $0.companyID == companyID && student.periodAssignment($0.id) == "Definitiva" }
+        }
     }
     func intervals(for student: Student, at companyID: UUID, until end: Date) -> [(start: Date, end: Date)] {
         guard student.hasStart else { return [] }
         return practicePeriods(for: student).compactMap { period in
-            guard period.companyID == companyID, let start = period.from else { return nil }
+            guard period.companyID == companyID, student.periodAssignment(period.shiftID) == "Definitiva",
+                  let start = period.from else { return nil }
             var final = min(end, period.end ?? end)
             let paperwork = student.periodPaperwork(period.shiftID)
             if paperwork[6].done { final = min(final, cal.startOfDay(for: paperwork[6].date)) }

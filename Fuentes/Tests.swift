@@ -6,6 +6,20 @@ import Foundation
         var db = Database(); db.exclusions = []
         var s = Student(); s.hasStart = true; s.start = day("2027-01-04"); s.hours = 8
         func check(_ condition: Bool, _ label: String) { if !condition { fatalError(label) }; print("OK: " + label) }
+        let january = CourseMonth(containing: day("2027-01-13"))
+        check(january.leadingBlanks == 4 && january.days.count == 31, "Enero se alinea con una semana que comienza en lunes")
+        let winterBreak = Exclusion(title: "Vacaciones ficticias", from: day("2026-12-23"), to: day("2027-01-08"))
+        check(CourseMonth.includes(day("2026-12-23"), in: winterBreak) &&
+              CourseMonth.includes(day("2027-01-08"), in: winterBreak) &&
+              !CourseMonth.includes(day("2027-01-09"), in: winterBreak) &&
+              CourseMonth.isWeekend(day("2027-01-09")), "La cuadrícula distingue las exclusiones inclusivas y los fines de semana")
+        var recorded = Student()
+        recorded.previousCourseHours = 60
+        recorded.nextCourseHours = 20
+        let reopened = try JSONDecoder().decode(Student.self, from: JSONEncoder().encode(recorded))
+        check(reopened.nextCourseHours == 20 && reopened.remainingHours(after: 40) == 400,
+              "Las horas entre cursos se conservan y las restantes descuentan el curso anterior y la previsión")
+        check(Student().remainingHours(after: 600) == 0, "Las horas restantes no son negativas")
         var r = calculate(s, db, today: day("2027-01-05"))
         check(r.end == day("2027-03-31") && r.lastHours == 4, "500 h, fines de semana y última jornada parcial")
         check(r.elapsed == 8, "Horas previstas excluyen el día actual")

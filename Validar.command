@@ -5,7 +5,7 @@ set -eu
 cd "$(dirname "$0")"
 task_validation_dir=$(mktemp -d "${TMPDIR:-/tmp}/practicas-fp-validacion.XXXXXX")
 trap 'rm -rf "$task_validation_dir"' EXIT
-common=(Fuentes/Model.swift Fuentes/DocumentWorkflow.swift Fuentes/Workflow.swift Fuentes/Store.swift Fuentes/Import.swift)
+common=(Fuentes/Model.swift Fuentes/Format5.swift Fuentes/DocumentWorkflow.swift Fuentes/Workflow.swift Fuentes/Store.swift Fuentes/Import.swift)
 python3 Fuentes/TestFixtures.py "$task_validation_dir/fixtures"
 for suite in Tests WorkflowTests ImportTests; do
     swiftc -parse-as-library "${common[@]}" "Fuentes/$suite.swift" -o "$task_validation_dir/$suite" -module-cache-path "$task_validation_dir/cache"

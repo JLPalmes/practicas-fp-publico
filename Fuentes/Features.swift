@@ -51,7 +51,9 @@ extension Database {
             func add(_ key: String, _ detail: String) {
                 tasks.append(PendingTask(id: "\(student.id)-\(key)", title: name, detail: detail, studentID: student.id))
             }
-            if student.assignment != "Definitiva" { add("assignment", "Asignación pendiente de confirmar") }
+            for period in practicePeriods(for: student) where student.periodAssignment(period.shiftID) != "Definitiva" {
+                add("assignment-\(period.id)", "Asignación pendiente de confirmar · " + (companies.first { $0.id == period.companyID }?.name ?? "Sin empresa"))
+            }
             if student.companyID != nil && student.tutorID == nil { add("tutor", "Tutor del periodo inicial pendiente") }
             for (key, paperwork) in [("initial", student.paperwork)] + student.shifts.filter({ $0.companyID != nil }).map({ ($0.id.uuidString, $0.paperwork ?? steps(studentPaperworkTitles)) }) {
                 let periodID = key == "initial" ? nil : UUID(uuidString: key)
@@ -104,7 +106,7 @@ extension Database {
         let selectedStudents = students.filter { (studentID == nil || $0.id == studentID) && (companyID == nil || self.companyIDs(for: $0).contains(companyID!)) }
         for student in selectedStudents {
             let result = calculate(student, self, today: today)
-            lines += ["ALUMNA: \(student.name)", "Grupo: \(student.group) · Asignación: \(student.assignment)", "Objetivo: \(student.requiredHours) h · Previstas hasta ayer: \(result.elapsed) h", "Inicio: \(student.hasStart ? dateText(student.start) : "Sin establecer")", "Fin: \(result.end.map { dateText(student.manualEnd ? student.end : $0) } ?? "Sin calcular")"]
+            lines += ["ALUMNA: \(student.name)", "Grupo: \(student.group)", "Objetivo: \(student.requiredHours) h · Previstas hasta ayer: \(result.elapsed) h", "Inicio: \(student.hasStart ? dateText(student.start) : "Sin establecer")", "Fin: \(result.end.map { dateText(student.manualEnd ? student.end : $0) } ?? "Sin calcular")"]
             lines.append("Jornada inicial: \(student.hours) h/día")
             lines += student.shifts.sorted { $0.from < $1.from }.map { "Cambio desde \(dateText($0.from)): \($0.hours.map { String($0) } ?? "Sin jornada") h/día" }
             if let end = result.end, student.start < calendarFrom || end > calendarTo { lines.append("Previsión fuera del periodo de calendario revisado.") }
@@ -112,7 +114,7 @@ extension Database {
             for period in practicePeriods(for: student) {
                 let name = companies.first { $0.id == period.companyID }?.name ?? "Sin empresa"
                 let tutor = tutors.first { $0.id == period.tutorID }?.name ?? "Sin tutor"
-                lines += ["Empresa: \(name) · Tutor: \(tutor)", "Periodo: \(period.from.map(dateText) ?? "Sin inicio") – \(period.end.map(dateText) ?? "Sin calcular")"]
+                lines += ["Empresa: \(name) · Tutor: \(tutor) · Asignación: \(student.periodAssignment(period.shiftID))", "Periodo: \(period.from.map(dateText) ?? "Sin inicio") – \(period.end.map(dateText) ?? "Sin calcular")"]
                 let paperwork = student.periodPaperwork(period.shiftID)
                 for i in (period.shiftID == nil ? [0,5,6] : [5,6]) {
                     lines.append(paperwork[i].title + ": " + (paperwork[i].done ? "Hecho · " + dateText(paperwork[i].date) : "Pendiente"))
@@ -139,7 +141,6 @@ extension Database {
     do {
         try text.write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
-        NSWorkspace.shared.activateFileViewerSelecting([url])
     } catch {
         let alert = NSAlert(); alert.messageText = "No se ha guardado el informe"; alert.informativeText = error.localizedDescription; alert.runModal()
     }

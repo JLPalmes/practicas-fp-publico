@@ -3,11 +3,17 @@
 # Copyright (C) 2026 Juan Luis (JLPalmes)
 set -eu
 cd "$(dirname "$0")"
+# Use the same release version as the Windows Tauri installer.
+version=$(/usr/bin/plutil -extract version raw -o - Experimentos/Tauri/tauri.conf.json)
+if [[ ! "$version" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
+    echo "La versión debe contener tres números." >&2
+    exit 1
+fi
 mkdir -p .build PracticasFP.app/Contents/MacOS PracticasFP.app/Contents/Resources
 cp LICENSE PracticasFP.app/Contents/Resources/LICENSE
 cp AVISO-LICENCIA.txt PracticasFP.app/Contents/Resources/AVISO-LICENCIA.txt
 cp Recursos/PracticasFP.icns PracticasFP.app/Contents/Resources/PracticasFP.icns
-cat > PracticasFP.app/Contents/Info.plist <<'PLIST'
+cat > PracticasFP.app/Contents/Info.plist <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -15,8 +21,8 @@ cat > PracticasFP.app/Contents/Info.plist <<'PLIST'
 <key>CFBundleIdentifier</key><string>es.practicasfp.mac</string>
 <key>CFBundleName</key><string>Prácticas FP</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.8.5</string>
-<key>CFBundleVersion</key><string>185</string>
+<key>CFBundleShortVersionString</key><string>${version}</string>
+<key>CFBundleVersion</key><string>${version}</string>
 <key>CFBundleIconFile</key><string>PracticasFP.icns</string>
 <key>CFBundleDevelopmentRegion</key><string>es</string>
 <key>CFBundleLocalizations</key><array><string>es</string></array>
@@ -24,7 +30,7 @@ cat > PracticasFP.app/Contents/Info.plist <<'PLIST'
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
-swiftc -target arm64-apple-macosx14.0 -parse-as-library Fuentes/Model.swift Fuentes/DocumentWorkflow.swift Fuentes/Workflow.swift Fuentes/CompanyViews.swift Fuentes/Store.swift Fuentes/Import.swift Fuentes/ImportView.swift Fuentes/Reports.swift Fuentes/Features.swift Fuentes/DocumentViews.swift Fuentes/App.swift -o .build/PracticasFP-arm64 -framework SwiftUI -framework AppKit -module-cache-path .build/cache
+swiftc -target arm64-apple-macosx14.0 -parse-as-library Fuentes/Model.swift Fuentes/Format5.swift Fuentes/DocumentWorkflow.swift Fuentes/Workflow.swift Fuentes/CompanyViews.swift Fuentes/Store.swift Fuentes/Import.swift Fuentes/ImportView.swift Fuentes/Reports.swift Fuentes/Features.swift Fuentes/DocumentViews.swift Fuentes/App.swift -o .build/PracticasFP-arm64 -framework SwiftUI -framework AppKit -module-cache-path .build/cache
 cp .build/PracticasFP-arm64 PracticasFP.app/Contents/MacOS/PracticasFP
 xattr -d com.apple.FinderInfo PracticasFP.app 2>/dev/null || true
 codesign --force --sign - PracticasFP.app

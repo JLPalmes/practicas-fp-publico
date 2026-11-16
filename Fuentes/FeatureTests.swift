@@ -6,6 +6,7 @@ import PDFKit
 @main struct FeatureTests {
     @MainActor static func main() throws {
         func check(_ value: Bool, _ label: String) { precondition(value, label); print("OK: " + label) }
+        try checkFormat5(check)
         var db = Database(); db.exclusions = []
         var s = Student(); s.name = "Alumna de prueba"; s.hasStart = true; s.start = day("2027-01-04"); s.hours = 8
         check(s.requiredHours == 500, "Objetivo anterior sigue siendo 500 horas")
@@ -144,7 +145,8 @@ import PDFKit
         let agreement = DocumentFlow.fromLegacy(.agreement, signedAgreement)
         check(agreement.completedCount == agreement.milestones.count && agreement.milestones.first { $0.id == "sentDirector" }?.date == nil, "Concierto migrado conserva firmas y carga sin inventar fechas de envío")
         var documentStudent = s
-        let period = Shift(from: day("2027-02-01"), hours: 6, companyID: nextCompany.id)
+        var period = Shift(from: day("2027-02-01"), hours: 6, companyID: nextCompany.id)
+        period.assignment = documentStudent.assignment
         documentStudent.shifts = [period]
         var nextDocument = DocumentFlow(.annexI); nextDocument.complete("generated", true, on: day("2027-01-20"))
         documentStudent.setDocument(nextDocument, periodID: period.id)
@@ -193,4 +195,72 @@ import PDFKit
         }
         print("Pruebas de mejoras superadas")
     }
+    @MainActor private static func checkFormat5(_ check: (Bool, String) -> Void) throws {
+        var db = Database()
+        db.version = 5
+        db.exclusions = []
+        let company = Company()
+        let student = Student()
+        db.companies = [company]
+        db.students = [student]
+        var payload = try JSONSerialization.jsonObject(with: JSONEncoder().encode(db)) as! [String: Any]
+        var records = payload["students"] as! [[String: Any]]
+        func period(_ start: String) -> [String: Any] {
+            [
+                "id": UUID().uuidString, "active": true, "hasStart": true,
+                "start": day(start).timeIntervalSinceReferenceDate,
+                "end": day(start).timeIntervalSinceReferenceDate, "manualEnd": false,
+                "hours": 7, "targetHours": 10, "companyID": company.id.uuidString,
+                "shifts": [], "paperwork": records[0]["paperwork"]!
+            ]
+        }
+        var first = period("2026-11-02")
+        first["futureField"] = ["note": "dato ficticio"]
+        var second = period("2026-11-04")
+        records[0]["practicePeriods"] = [first, second]
+        records[0]["previousCourseHours"] = 30
+        records[0]["nextCourseHours"] = 12
+        payload["students"] = records
+        let bytes = try JSONSerialization.data(withJSONObject: payload)
+        let copy = try Format5Preview(data: bytes)
+        let loaded = copy.students[0]
+        let results = loaded.forecasts(in: copy.calendar, today: day("2026-11-05"))
+        check(copy.original == bytes && loaded.nextCourseHours == 12, "Formato 5 conserva la copia y las horas del siguiente curso")
+        check(results.count == 2 && results[0].end == day("2026-11-03") && results[1].elapsed == 7, "Los dos periodos calculan su previsión por separado")
+        check(loaded.remainingHours(elapsed: results.reduce(0) { $0 + $1.elapsed }) == 453, "Las horas pendientes descuentan curso previo y previsión")
+        let periodID = loaded.practicePeriods![0].id
+        var edit = Format5ScheduleEdit(loaded.practicePeriods![0])
+        edit.hours = 5
+        edit.targetHours = 15
+        let edited = try copy.editingSchedule(studentID: loaded.id, periodID: periodID, edit: edit)
+        let reopened = try Format5Preview(data: edited.original)
+        check(reopened.students[0].practicePeriods?[0].hours == 5 &&
+              reopened.students[0].forecasts(in: reopened.calendar, today: day("2026-11-05"))[0].end == day("2026-11-04"),
+              "Reabrir una copia editada recupera el horario y recalcula el fin")
+        let raw = try JSONSerialization.jsonObject(with: edited.original) as! [String: Any]
+        let editedPeriods = (raw["students"] as! [[String: Any]])[0]["practicePeriods"] as! [[String: Any]]
+        check((editedPeriods[0]["futureField"] as? [String: String])?["note"] == "dato ficticio" &&
+              NSDictionary(dictionary: editedPeriods[1]).isEqual(to: second) && copy.original == bytes,
+              "Editar un periodo conserva los campos desconocidos, el segundo periodo y los bytes originales")
+        edit.hours = 25
+        check((try? copy.editingSchedule(studentID: loaded.id, periodID: periodID, edit: edit)) == nil,
+              "La edición rechaza jornadas mayores de 24 horas")
+        second["start"] = day("2026-11-03").timeIntervalSinceReferenceDate
+        records[0]["practicePeriods"] = [first, second]
+        payload["students"] = records
+        let overlap = try Format5Preview(data: JSONSerialization.data(withJSONObject: payload))
+        let overlapping = overlap.students[0].forecasts(in: overlap.calendar, today: day("2026-11-05"))
+        check(overlapping[1].error != nil && overlapping[1].elapsed == 0, "Los periodos solapados no cuentan horas dos veces")
+        second["active"] = false
+        records[0]["practicePeriods"] = [first, second]
+        payload["students"] = records
+        let inactive = try Format5Preview(data: JSONSerialization.data(withJSONObject: payload))
+        check(inactive.students[0].forecasts(in: inactive.calendar, today: day("2026-11-05")).count == 1, "El segundo periodo inactivo queda fuera de la previsión")
+        records[0]["practicePeriods"] = [first, first]
+        payload["students"] = records
+        let duplicate = try JSONSerialization.data(withJSONObject: payload)
+        check((try? Format5Preview(data: duplicate)) == nil, "El lector rechaza identificadores de periodo duplicados")
+        check((try? Store.decode(bytes)) == nil, "El almacén de la serie 1 protege las copias del formato 5")
+    }
+
 }
