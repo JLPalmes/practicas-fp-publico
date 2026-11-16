@@ -12,7 +12,7 @@ static class Installer {
 #if TAURI
     const string Product="Prácticas FP Tauri";
     const string ProductId="PracticasFP-Tauri";
-    const string Version="2.1.2";
+    const string Version="2.1.3";
     const string DataFolder="PracticasFP-Tauri-Piloto";
     static readonly string[] Files={"PracticasFP.exe","motor.exe","Desinstalar.exe"};
 #else

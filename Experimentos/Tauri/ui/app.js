@@ -271,6 +271,7 @@ function updateCard(button, card) {
   button.replaceChildren(...card.lines.map((text, index) => {
     const line = document.createElement(index === 0 ? "strong" : "span");
     line.textContent = text;
+    if (index === 0) line.title = text;
     return line;
   }));
 }
@@ -525,6 +526,7 @@ function renderDirectoryCards() {
     button.type = "button";
     const title = document.createElement("strong");
     title.textContent = record.name || "Sin nombre";
+    title.title = title.textContent;
     button.append(title);
     if (directoryKind === "tutors" && record.company) {
       const line = document.createElement("span");

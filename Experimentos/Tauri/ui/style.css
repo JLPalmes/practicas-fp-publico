@@ -31,7 +31,7 @@ body { margin: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); height
 .app-header [aria-current="page"], .tabs [aria-selected="true"] { background: var(--wash); color: #075547; font-weight: 700; }
 .app-header button:hover:not(:disabled), .tabs button:hover { border-color: var(--line); }
 
-.workspace { display: grid; grid-template-columns: minmax(205px, 255px) minmax(0, 1fr); min-height: 0; }
+.workspace { display: grid; grid-template-columns: clamp(205px, 30vw, 300px) minmax(0, 1fr); min-height: 0; }
 .record-list, main, .panel-body { overflow: auto; min-height: 0; min-width: 0; }
 .record-list { padding: 22px 16px; background: #fff; border-right: 1px solid var(--line); }
 .record-list > h2 { margin: 0 0 12px; }
@@ -40,6 +40,8 @@ body { margin: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); height
 #list, .cards { display: grid; gap: 6px; margin-top: 14px; }
 #list button, .cards button { text-align: left; padding: 10px 12px; overflow-wrap: anywhere; }
 #list button > *, .cards button > * { display: block; }
+#list button, #directory-list button { min-width: 0; }
+#list button strong, #directory-list button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #list button span, .cards button span { font-size: .87rem; }
 .cards button .muted { color: var(--muted); }
 button[aria-current="true"] { background: var(--wash); color: #113f35; border-color: #8dc3b4; }
