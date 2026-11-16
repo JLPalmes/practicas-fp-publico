@@ -22,8 +22,8 @@ public static class UpdateFiles {
             else File.Move(temp,target);
         }finally {if(File.Exists(temp))File.Delete(temp);}
     }
-    static void Clean(string folder) {
-        foreach(string name in Names) {
+    static void Clean(string folder,string[] names) {
+        foreach(string name in names) {
             foreach(string prefix in new[] {
                 "old-","new-"
             }) {
@@ -39,10 +39,10 @@ public static class UpdateFiles {
         }
         if(Directory.GetFileSystemEntries(folder).Length==0)Directory.Delete(folder);
     }
-    static void Rollback(string root,string transaction) {
+    static void Rollback(string root,string transaction,string[] names) {
         string[] existing=File.ReadAllLines(Path.Combine(transaction,"existing.txt"));
-        if(existing.Any(x=>!Names.Contains(x)))throw new IOException("Registro de actualización no válido. Se conservan los respaldos en "+transaction);
-        foreach(string name in Names) {
+        if(existing.Any(x=>!names.Contains(x)))throw new IOException("Registro de actualización no válido. Se conservan los respaldos en "+transaction);
+        foreach(string name in names) {
             string target=Path.Combine(root,name),old=Path.Combine(transaction,"old-"+name);
             if(existing.Contains(name)) {
                 if(!File.Exists(old))throw new IOException("Falta el respaldo para recuperar "+name);
@@ -52,18 +52,24 @@ public static class UpdateFiles {
         }
     }
     public static void Recover(string root) {
+        Recover(root,Names);
+    }
+    static void Recover(string root,string[] names) {
         if(!Directory.Exists(root))return;
         foreach(string transaction in Directory.GetDirectories(root,".actualizacion-*",SearchOption.TopDirectoryOnly)) {
-            if(File.Exists(Path.Combine(transaction,"prepared"))&&!File.Exists(Path.Combine(transaction,"committed")))Rollback(root,transaction);
-            Clean(transaction);
+            if(File.Exists(Path.Combine(transaction,"prepared"))&&!File.Exists(Path.Combine(transaction,"committed")))Rollback(root,transaction,names);
+            Clean(transaction,names);
         }
     }
     public static void Install(string root,Dictionary<string,byte[]> payload,Action integrate,Action rollbackIntegration,Action<string> checkpoint=null) {
-        if(payload.Count!=Names.Length||Names.Any(x=>!payload.ContainsKey(x)))throw new ArgumentException("La actualización debe contener los dos ejecutables.");
+        Install(root,payload,integrate,rollbackIntegration,checkpoint,Names);
+    }
+    internal static void Install(string root,Dictionary<string,byte[]> payload,Action integrate,Action rollbackIntegration,Action<string> checkpoint,string[] names) {
+        if(payload.Count!=names.Length||names.Any(x=>!payload.ContainsKey(x)))throw new ArgumentException("Faltan archivos del instalador.");
         Directory.CreateDirectory(root);
-        Recover(root);
+        Recover(root,names);
         // Fail before replacing anything if either executable is still in use.
-        foreach(string name in Names) {
+        foreach(string name in names) {
             string file=Path.Combine(root,name);
             if(File.Exists(file))using(var probe=new FileStream(file,FileMode.Open,FileAccess.ReadWrite,FileShare.None)) {
             }
@@ -73,7 +79,7 @@ public static class UpdateFiles {
         bool prepared=false,integrationStarted=false,committed=false;
         try {
             var existing=new List<string>();
-            foreach(string name in Names) {
+            foreach(string name in names) {
                 string target=Path.Combine(root,name);
                 if(File.Exists(target)) {
                     File.Copy(target,Path.Combine(transaction,"old-"+name));
@@ -86,7 +92,7 @@ public static class UpdateFiles {
             File.WriteAllLines(Path.Combine(transaction,"existing.txt"),existing.ToArray());
             File.WriteAllText(Path.Combine(transaction,"prepared"),"1");
             prepared=true;
-            foreach(string name in Names) {
+            foreach(string name in names) {
                 Atomic(Path.Combine(root,name),File.ReadAllBytes(Path.Combine(transaction,"new-"+name)));
                 if(checkpoint!=null)checkpoint(name);
             }
@@ -100,19 +106,19 @@ public static class UpdateFiles {
         }
         catch(Exception original) {
             try {
-                if(prepared)Rollback(root,transaction);
+                if(prepared)Rollback(root,transaction,names);
                 if(integrationStarted)rollbackIntegration();
             }
             catch(Exception recovery) {
                 throw new IOException("La actualización ha fallado y no se ha completado la recuperación. Conserva los respaldos en "+transaction+". "+recovery.Message,original);
             }
-            Clean(transaction);
+            Clean(transaction,names);
             throw;
         }
         // Cleanup failures do not turn a committed installation into a failure.
         if(committed) {
             try {
-                Clean(transaction);
+                Clean(transaction,names);
             }
             catch(IOException) {
             }

@@ -32,16 +32,21 @@ namespace PracticasFP {
                 };
                 f.Controls.Add(t);
                 f.Controls.Add(bar);
-                AddButton(bar,"Guardar texto…",()=> {
-                    using(var d=new SaveFileDialog {
-                        Filter="Texto UTF-8|*.txt",FileName="Informe-PracticasFP.txt"
-                    })if(d.ShowDialog(f)==DialogResult.OK)J.Atomic(d.FileName,report);
-                });
-                AddButton(bar,"Imprimir / Guardar como PDF…",()=>Print(report,f));
+                AddButton(bar,"Guardar texto…",()=>SaveReportText(report,f));
+                AddButton(bar,"Imprimir / Guardar como PDF…",()=>PrintReport(report,f));
                 f.ShowDialog(this);
             }
         }
-        void Print(string text,Form parent) {
+        internal static bool SaveReportText(string text,IWin32Window parent=null) {
+            using(var dialog=new SaveFileDialog {
+                Filter="Texto UTF-8|*.txt",FileName="Informe-PracticasFP.txt"
+            }) {
+                if(dialog.ShowDialog(parent)!=DialogResult.OK)return false;
+                J.Atomic(dialog.FileName,text);
+                return true;
+            }
+        }
+        internal static bool PrintReport(string text,IWin32Window parent=null) {
             using(var doc=new PrintDocument()) {
                 doc.DocumentName="Informe-PracticasFP";
                 doc.DefaultPageSettings.PaperSize=new PaperSize("A4",827,1169);
@@ -63,7 +68,11 @@ namespace PracticasFP {
                     };
                     using(var dialog=new PrintDialog {
                         Document=doc,UseEXDialog=true,AllowSomePages=false
-                    })if(dialog.ShowDialog(parent)==DialogResult.OK)doc.Print();
+                    }) {
+                        if(dialog.ShowDialog(parent)!=DialogResult.OK)return false;
+                        doc.Print();
+                        return true;
+                    }
                 }
             }
         }

@@ -57,6 +57,9 @@ namespace PracticasFP {
         void TrimHistory() {
             while(undo.Count>1&&(undo.Count>50||HistoryBytes>16*1024*1024))undo.RemoveAt(0);
         }
+        protected virtual void Persist(Dictionary<string,object> db,string json) {
+            J.Atomic(FilePath,json);
+        }
         public void Change(Action action) {
             if(Blocked)throw new Exception(Error);
             string before=J.Json(Db);
@@ -66,7 +69,7 @@ namespace PracticasFP {
                 if(after==before)return;
                 Model.Decode(after);
                 var entry=HistoryEntry.Between(J.Parse(before),Db);
-                J.Atomic(FilePath,after);
+                Persist(Db,after);
                 undo.Add(entry);
                 redo.Clear();
                 TrimHistory();
@@ -88,7 +91,7 @@ namespace PracticasFP {
             entry.Apply(updated,forward);
             string value=J.Json(updated);
             Model.Decode(value);
-            J.Atomic(FilePath,value);
+            Persist(updated,value);
             target.Add(entry);
             source.RemoveAt(source.Count-1);
             Db=updated;
@@ -105,7 +108,7 @@ namespace PracticasFP {
             var valid=Model.Decode(J.Json(db));
             var entry=HistoryEntry.Between(Db,valid);
             Backup();
-            J.Atomic(FilePath,J.Json(valid));
+            Persist(valid,J.Json(valid));
             undo.Add(entry);
             redo.Clear();
             TrimHistory();

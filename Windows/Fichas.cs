@@ -19,13 +19,7 @@ namespace PracticasFP {
                 FieldPair("identification",()=>TextField(o,"dni","DNI / NIE"),()=>TextField(o,"nuss","NUSS"));
                 PhoneAndEmail(o);
                 PracticeStep(o,0);
-                var warnings=new List<string>();
-                if(J.S(o,"name").Trim()=="")warnings.Add("Completa el nombre.");
-                if(Model.Items(store.Db,"students").Any(x=>J.S(x,"id")!=J.S(o,"id")&&Importer.Identity(x).Overlaps(Importer.Identity(o))))warnings.Add("Posible ficha duplicada: revisa nombre, DNI, NUSS y correo.");
-                if(J.S(o,"nuss")!=""&&J.S(o,"nuss").Count(char.IsDigit)!=12)warnings.Add("Revisa el NUSS: se esperan 12 cifras.");
-                if(J.S(o,"email")!=""&&(!J.S(o,"email").Contains("@")||J.S(o,"email").Any(char.IsWhiteSpace)))warnings.Add("Revisa el correo.");
-                if(J.S(o,"dni")!=""&&J.S(o,"dni").Replace(" ","").Replace("-","").Length!=9)warnings.Add("Revisa el DNI / NIE.");
-                foreach(var warning in warnings)Note(warning);
+                foreach(var warning in WorkspaceRules.StudentWarnings(store.Db,o))Note(warning);
             });
             Title("Preferencias",()=> {
                 TextField(o,"preferredType","Tipo de empresa");
@@ -342,8 +336,7 @@ namespace PracticasFP {
             var o=Current();
             if(o==null)return;
             string id=J.S(o,"id");
-            if(section=="companies"&&(Model.Occupied(store.Db,id)>0||Model.Items(store.Db,"tutors").Any(x=>J.S(x,"companyID")==id)))throw new Exception("Retira primero las alumnas y tutores vinculados a esta empresa.");
-            if(section=="tutors"&&Model.Items(store.Db,"students").Any(s=>Model.HasTutor(s,id)))throw new Exception("Retira primero el tutor de las prácticas vinculadas.");
+            WorkspaceRules.CheckDelete(store.Db,section,id);
             string question=section=="exclusions"?"¿Eliminar este día o intervalo?":"¿Eliminar esta ficha?";
             if(Confirm(question+" Puedes recuperarlo con Deshacer durante esta sesión.")) {
                 store.Change(()=>J.EditArray(store.Db,section).Remove(o));
@@ -352,22 +345,7 @@ namespace PracticasFP {
             }
         }
         void Import() {
-            using(var d=new OpenFileDialog {
-                Filter="CSV o Excel|*.csv;*.tsv;*.xlsx"
-            })if(d.ShowDialog(this)==DialogResult.OK) {
-                var sheets=Importer.Read(d.FileName);
-                using(var dialog=new ImportForm(sheets,store.Db)) {
-                    if(dialog.ShowDialog(this)==DialogResult.OK&&dialog.Accepted.Count>0) {
-                        store.Backup();
-                        store.Change(()=> {
-                            foreach(var student in dialog.Accepted)Model.ConvertPeriods(J.D(student),store.Db);
-                            store.Db["version"]=5;
-                            J.EditArray(store.Db,"students").AddRange(dialog.Accepted);
-                        });
-                        Navigate("students");
-                    }
-                }
-            }
+            if(ImportStudents(store,this))Navigate("students");
         }
     }
 }

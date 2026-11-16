@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<title>Prácticas FP</title>
+<link rel="stylesheet" href="style.css">
+<header class="app-header">
+  <div class="brand"><span class="brand-mark" aria-hidden="true">FP</span> Prácticas FP</div>
+  <nav aria-label="Secciones">
+    <button id="students" type="button" aria-current="page">Alumnas</button>
+    <button id="companies" type="button" disabled>Empresas</button>
+    <button id="tutors" type="button" disabled>Tutores</button>
+    <button id="calendar" type="button" disabled>Calendario</button>
+  </nav>
+  <div class="header-actions">
+    <button id="reports" type="button" disabled>Informes</button>
+    <button id="backups" type="button" disabled>Datos y copias</button>
+  </div>
+</header>
+<section id="students-panel" class="workspace">
+<aside class="record-list"><h2>Alumnas</h2>
+  <label for="student-search">Buscar alumnas</label>
+  <input id="student-search" type="search">
+  <button id="create" class="primary" disabled>Añadir alumna</button>
+  <button id="undo" type="button" disabled>Deshacer</button>
+  <button id="redo" type="button" disabled>Rehacer</button>
+  <button id="import-students" type="button" disabled>Importar alumnas…</button>
+  <output id="import-status" aria-live="polite"></output>
+  <div id="list"></div>
+  <p id="empty-search" role="status" hidden>No hay alumnas que coincidan.</p>
+</aside>
+<main>
+  <h1 id="name">Alumnas</h1>
+  <form id="ficha">
+    <div id="student-tabs" class="tabs" role="tablist" aria-label="Secciones de la ficha">
+      <button id="tab-personal" type="button" role="tab" aria-controls="personal">Datos personales</button>
+      <button id="tab-preferences" type="button" role="tab" aria-controls="preferences-panel">Preferencias</button>
+      <button id="tab-hours" type="button" role="tab" aria-controls="global-hours">Horas</button>
+      <button id="tab-first" type="button" role="tab" aria-controls="periods">Primer periodo</button>
+      <button id="tab-second" type="button" role="tab" aria-controls="periods">Segundo periodo</button>
+    </div>
+    <section id="personal" role="tabpanel" aria-labelledby="tab-personal" class="sheet">
+    <h2>Datos personales</h2>
+    <dl>
+      <dt><label for="student-name">Nombre y apellidos</label></dt><dd><input id="student-name"></dd>
+      <dt><label for="group">Grupo</label></dt><dd><input id="group"></dd>
+      <dt><label for="dni">DNI / NIE</label></dt><dd><input id="dni"></dd>
+      <dt><label for="nuss">NUSS</label></dt><dd><input id="nuss" inputmode="numeric"></dd>
+      <dt><label for="phone">Teléfono</label></dt><dd><input id="phone" type="tel"></dd>
+      <dt><label for="email">Correo</label></dt><dd><input id="email" inputmode="email"></dd>
+    </dl>
+    <label><input id="certificate" type="checkbox"> Certificado de delitos de naturaleza sexual aportado</label>
+    <ul id="student-warnings" role="status"></ul>
+    </section>
+    <section id="preferences-panel" role="tabpanel" aria-labelledby="tab-preferences" class="sheet" hidden>
+    <h2>Preferencias</h2>
+    <dl>
+      <dt><label for="preferredType">Tipo de empresa</label></dt><dd><input id="preferredType"></dd>
+      <dt><label for="preferredZone">Zona</label></dt><dd><input id="preferredZone"></dd>
+      <dt><label for="preferences">Detalle de preferencias</label></dt><dd><textarea id="preferences"></textarea></dd>
+      <dt><label for="notes">Observaciones</label></dt><dd><textarea id="notes"></textarea></dd>
+    </dl>
+    </section>
+    <section id="global-hours" role="tabpanel" aria-labelledby="tab-hours" class="sheet" hidden>
+    <h2>Registro global de horas</h2>
+    <dl>
+      <dt><label for="target">Objetivo general</label></dt><dd><input id="target" inputmode="decimal"></dd>
+      <dt><label for="previous">Horas del curso anterior</label></dt><dd><input id="previous" inputmode="decimal"></dd>
+      <dt><label for="next">Horas para el curso siguiente</label></dt><dd><input id="next" inputmode="decimal"></dd>
+      <dt>Previstas hasta ayer</dt><dd id="elapsed"></dd>
+      <dt>Restantes</dt><dd id="remaining"></dd>
+    </dl>
+    </section>
+    <section id="periods" role="tabpanel" aria-labelledby="tab-first" hidden>
+      <label id="second-toggle" class="period-toggle" hidden><input id="second-active" type="checkbox"> Realizar segundo periodo</label>
+    </section>
+    <div class="form-actions">
+    <button id="save" class="primary" disabled>Guardar ficha</button>
+    <button id="discard" type="button" hidden>Descartar cambios</button>
+    <button id="delete-student" type="button">Eliminar ficha…</button>
+    <button id="student-report" type="button">Informe de la alumna</button>
+    <output id="save-status" aria-live="polite"></output>
+    </div>
+  </form>
+  <button id="measure" disabled>Medir tiempos</button>
+  <pre id="result" role="status"></pre>
+</main>
+</section>
+<section id="directory-dialog" class="workspace" hidden>
+  <aside class="record-list">
+    <h2 id="directory-title"></h2>
+    <button id="directory-create" class="primary" type="button"></button>
+    <select id="directory-record" aria-label="Ficha" hidden></select>
+    <div id="directory-list" class="cards"></div>
+  </aside>
+  <div class="panel-body">
+  <h1 id="directory-heading"></h1>
+  <form id="directory-form">
+    <div class="sheet">
+    <dl id="directory-fields"></dl>
+    </div>
+    <div id="directory-details"></div>
+    <div class="form-actions">
+    <button class="primary">Guardar</button>
+    <button id="directory-discard" type="button" hidden>Descartar cambios</button>
+    <button id="directory-delete" type="button" hidden>Eliminar ficha…</button>
+    <button id="company-report" type="button" hidden>Informe de la empresa</button>
+    <output id="directory-status" aria-live="polite"></output>
+    </div>
+  </form>
+  </div>
+</section>
+<dialog id="report-dialog">
+  <h2>Informe de prácticas</h2>
+  <pre id="report-text" tabindex="0"></pre>
+  <button id="report-save" type="button">Guardar texto…</button>
+  <button id="report-print" type="button">Imprimir / Guardar como PDF…</button>
+  <button id="report-close" type="button">Cerrar</button>
+  <output id="report-status" aria-live="polite"></output>
+</dialog>
+<dialog id="backup-dialog">
+  <h2>Datos y copias</h2>
+  <form id="course-form">
+    <label>Centro <input name="institute"></label>
+    <label>Curso <input name="course"></label>
+    <button>Guardar datos del curso</button>
+  </form>
+  <button id="backup-export" type="button">Guardar copia de seguridad…</button>
+  <button id="backup-select" type="button">Restaurar copia de Windows o Mac…</button>
+  <div id="backup-preview" hidden>
+    <p id="backup-summary"></p>
+    <p>Se sustituirán los datos actuales. Se conservará una copia previa.</p>
+    <button id="backup-apply" type="button">Restaurar y sustituir datos</button>
+    <button id="backup-cancel" type="button">Cancelar restauración</button>
+  </div>
+  <button id="backup-discard" type="button" hidden>Descartar cambios</button>
+  <button id="backup-close" type="button">Cerrar</button>
+  <output id="backup-status" aria-live="polite"></output>
+</dialog>
+<dialog id="confirm-delete">
+  <form method="dialog">
+    <p>¿Eliminar esta ficha? Puedes recuperarla con Deshacer durante esta sesión.</p>
+    <button value="cancel" autofocus>Cancelar</button>
+    <button value="delete">Eliminar</button>
+  </form>
+</dialog>
+<section id="calendar-dialog" class="workspace" hidden>
+  <aside class="record-list">
+    <h2>Días excluidos</h2>
+    <button id="calendar-create" class="primary" type="button">Añadir día o intervalo</button>
+    <select id="exclusion-picker" aria-label="Día o intervalo" hidden></select>
+    <div id="calendar-list" class="cards"></div>
+  </aside>
+  <div class="panel-body">
+  <h1>Calendario del curso</h1>
+  <section class="sheet month-view" aria-labelledby="calendar-month-title">
+    <header class="month-header">
+      <button id="calendar-previous-month" type="button" aria-label="Mes anterior">‹</button>
+      <h2 id="calendar-month-title" aria-live="polite"></h2>
+      <button id="calendar-next-month" type="button" aria-label="Mes siguiente">›</button>
+    </header>
+    <div class="month-weekdays" aria-hidden="true">
+      <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+    </div>
+    <div id="calendar-days" class="month-days"></div>
+    <div class="month-legend">
+      <span><i class="day-key excluded"></i> Festivo o día excluido</span>
+      <span><i class="day-key weekend"></i> Fin de semana</span>
+    </div>
+    <div id="calendar-day-detail" class="day-detail" aria-live="polite" hidden></div>
+  </section>
+  <form id="calendar-form" class="sheet">
+    <label>Revisado desde <input name="from" type="date" required></label>
+    <label>Revisado hasta <input name="to" type="date" required></label>
+    <p><label><input name="confirmed" type="checkbox"> Días de libre disposición confirmados</label></p>
+    <button>Guardar calendario</button>
+  </form>
+  <form id="exclusion-form" class="sheet">
+    <h2 id="exclusion-heading">Nuevo día o intervalo</h2>
+    <dl>
+      <dt><label for="exclusion-title">Descripción</label></dt><dd><input id="exclusion-title" name="title"></dd>
+      <dt><label for="exclusion-kind">Tipo</label></dt><dd><input id="exclusion-kind" name="kind"></dd>
+      <dt><label for="exclusion-from">Desde (incluido)</label></dt><dd><input id="exclusion-from" name="from" type="date" required></dd>
+      <dt><label for="exclusion-to">Hasta (incluido)</label></dt><dd><input id="exclusion-to" name="to" type="date" required></dd>
+    </dl>
+    <button id="exclusion-save">Añadir día o intervalo</button>
+    <button id="exclusion-delete" type="button" hidden>Eliminar día o intervalo…</button>
+  </form>
+  <button id="calendar-discard" type="button" hidden>Descartar cambios</button>
+  <output id="calendar-status" aria-live="polite"></output>
+  </div>
+</section>
+<template id="period"><article><h2></h2><dl>
+  <dt><label>Empresa</label></dt><dd><select class="company"></select></dd>
+  <dt><label>Tutor de empresa</label></dt><dd><select class="tutor"></select></dd>
+  <dt><label>Estado de la asignación</label></dt><dd><select class="assignment">
+    <option>Pendiente</option><option>Provisional</option><option>Definitiva</option>
+  </select></dd>
+  <dt><label>Inicio</label></dt><dd><input class="start" type="date"></dd>
+  <dt><label>Fin manual</label></dt><dd><input class="end" type="date"></dd>
+  <dt><label>Horas diarias</label></dt><dd><input class="hours" inputmode="decimal"></dd>
+  <dt><label>Objetivo</label></dt><dd><input class="target" inputmode="decimal"></dd>
+  <dt>Fin previsto</dt><dd class="forecastEnd"></dd>
+</dl><p class="error" role="status"></p>
+<button type="button" class="open-company" hidden>Abrir empresa</button>
+<button type="button" class="open-tutor" hidden>Abrir tutor</button>
+<div>
+  <label><input class="practice-start" type="checkbox"> Práctica iniciada</label>
+  <label><input class="practice-end" type="checkbox"> Práctica finalizada</label>
+</div>
+<div class="shifts"></div>
+<button type="button" class="add-shift">Añadir cambio de jornada</button>
+<details class="annexI"><summary>Anexo I · asignación de tutor</summary><div class="milestones"></div></details>
+<details class="annexII"><summary>Anexo II · calificación final</summary><div class="milestones"></div></details>
+</article></template>
+<template id="shift"><div class="shift">
+  <label>Desde <input type="date" class="from"></label>
+  <label>Nuevas horas diarias <input inputmode="decimal" class="hours"></label>
+  <button type="button" class="remove-shift">Quitar</button>
+</div></template>
+<script src="app.js"></script>
+<script src="calendar.js"></script>
+<script src="reports.js"></script>
+<script src="backups.js"></script>
+</html>

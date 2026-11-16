@@ -11,6 +11,29 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Diagnostics;
 namespace PracticasFP {
+    public partial class MainForm {
+        internal static void SaveImportedStudents(Store store,List<object> accepted) {
+            if(accepted.Count==0)return;
+            store.Backup();
+            store.Change(()=> {
+                foreach(var student in accepted)Model.ConvertPeriods(J.D(student),store.Db);
+                store.Db["version"]=5;
+                J.EditArray(store.Db,"students").AddRange(accepted);
+            });
+        }
+
+        internal static bool ImportStudents(Store store,IWin32Window owner=null) {
+            using(var file=new OpenFileDialog {Filter="CSV o Excel|*.csv;*.tsv;*.xlsx"}) {
+                if(file.ShowDialog(owner)!=DialogResult.OK)return false;
+                using(var review=new ImportForm(Importer.Read(file.FileName),store.Db)) {
+                    if(review.ShowDialog(owner)!=DialogResult.OK||review.Accepted.Count==0)return false;
+                    SaveImportedStudents(store,review.Accepted);
+                    return true;
+                }
+            }
+        }
+    }
+
     public class ImportForm:Form {
         readonly List<Sheet> sheets;
         readonly object db;

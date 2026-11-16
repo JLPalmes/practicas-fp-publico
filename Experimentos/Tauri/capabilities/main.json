@@ -1,0 +1,6 @@
+{
+  "identifier": "main",
+  "description": "Permite a la ficha interceptar el cierre de su ventana.",
+  "windows": ["main"],
+  "permissions": ["core:event:default", "core:window:allow-destroy"]
+}
