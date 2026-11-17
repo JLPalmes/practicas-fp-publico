@@ -67,29 +67,47 @@ struct PracticePeriodsEditor: View {
                 if let shiftID = period.shiftID, let i = s.shifts.firstIndex(where: { $0.id == shiftID }) {
                     DatePicker("Inicio del periodo", selection: $s.shifts[i].from, displayedComponents: .date)
                     TextField("Horas diarias iniciales del periodo", value: $s.shifts[i].hours, format: .number)
-                    Picker("Empresa", selection: Binding(get: { s.shifts.first { $0.id == shiftID }?.companyID }, set: { store.assignPeriod(s.id, periodID: shiftID, to: $0) })) {
-                        ForEach(store.db.companies) { company in Text(company.name).tag(Optional(company.id)).disabled(!store.db.canAssignPeriod(s.id, periodID: shiftID, to: company.id)) }
+                    HStack(spacing: 8) {
+                        Picker("Empresa", selection: Binding(get: { s.shifts.first { $0.id == shiftID }?.companyID }, set: { store.assignPeriod(s.id, periodID: shiftID, to: $0) })) {
+                            ForEach(store.db.companies) { company in Text(company.name).tag(Optional(company.id)).disabled(!store.db.canAssignPeriod(s.id, periodID: shiftID, to: company.id)) }
+                        }
+                        if let id = period.companyID {
+                            RecordLink(title: "Abrir ficha de empresa") { openCompany(id) }
+                        }
                     }
-                    Picker("Tutor", selection: $s.shifts[i].tutorID) {
-                        Text("Sin asignar").tag(nil as UUID?)
-                        ForEach(store.db.tutors.filter { $0.companyID == period.companyID }) { Text($0.name).tag(Optional($0.id)) }
+                    HStack(spacing: 8) {
+                        Picker("Tutor", selection: $s.shifts[i].tutorID) {
+                            Text("Sin asignar").tag(nil as UUID?)
+                            ForEach(store.db.tutors.filter { $0.companyID == period.companyID }) { Text($0.name).tag(Optional($0.id)) }
+                        }
+                        if let id = period.tutorID {
+                            RecordLink(title: "Abrir ficha del tutor") { openTutor(id) }
+                        }
                     }
                     Checklist(items: Binding(get: { s.shifts.first { $0.id == shiftID }?.paperwork ?? steps(studentPaperworkTitles) }, set: { value in if let i = s.shifts.firstIndex(where: { $0.id == shiftID }) { s.shifts[i].paperwork = value } }), only: [5,6])
                     DeleteButton(title: "Eliminar este periodo") { s.shifts.removeAll { $0.id == shiftID } }
                 } else {
-                    Picker("Empresa", selection: Binding(get: { s.companyID }, set: { store.assign(s.id, to: $0) })) {
-                        Text("Sin asignar").tag(nil as UUID?)
-                        ForEach(store.db.companies) { company in Text(company.name).tag(Optional(company.id)).disabled(!store.db.canAssign(s.id, to: company.id)) }
+                    HStack(spacing: 8) {
+                        Picker("Empresa", selection: Binding(get: { s.companyID }, set: { store.assign(s.id, to: $0) })) {
+                            Text("Sin asignar").tag(nil as UUID?)
+                            ForEach(store.db.companies) { company in Text(company.name).tag(Optional(company.id)).disabled(!store.db.canAssign(s.id, to: company.id)) }
+                        }
+                        if let id = period.companyID {
+                            RecordLink(title: "Abrir ficha de empresa") { openCompany(id) }
+                        }
                     }
-                    Picker("Tutor", selection: $s.tutorID) {
-                        Text("Sin asignar").tag(nil as UUID?)
-                        ForEach(store.db.tutors.filter { s.companyID != nil && $0.companyID == s.companyID }) { Text($0.name).tag(Optional($0.id)) }
+                    HStack(spacing: 8) {
+                        Picker("Tutor", selection: $s.tutorID) {
+                            Text("Sin asignar").tag(nil as UUID?)
+                            ForEach(store.db.tutors.filter { s.companyID != nil && $0.companyID == s.companyID }) { Text($0.name).tag(Optional($0.id)) }
+                        }
+                        if let id = period.tutorID {
+                            RecordLink(title: "Abrir ficha del tutor") { openTutor(id) }
+                        }
                     }
                     Checklist(items: $s.paperwork, only: [0,5,6])
                 }
                 assignmentControl(for: period)
-                if let id = period.companyID { Button("Abrir ficha de empresa") { openCompany(id) } }
-                if let id = period.tutorID { Button("Abrir ficha del tutor") { openTutor(id) } }
                 ForEach(period.changes) { change in
                     if let i = s.shifts.firstIndex(where: { $0.id == change.id }) {
                         VStack(alignment: .leading) {

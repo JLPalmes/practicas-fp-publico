@@ -56,22 +56,68 @@ struct Checklist: View {
         }
     }
 }
+struct WideTextField: View {
+    let title: String
+    @Binding var text: String
+    var wraps = false
+
+    init(_ title: String, text: Binding<String>, wraps: Bool = false) {
+        self.title = title
+        _text = text
+        self.wraps = wraps
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(title).font(.caption).foregroundStyle(.secondary).fixedSize().accessibilityHidden(true)
+            if wraps {
+                TextField(title, text: Binding(
+                    get: { text },
+                    set: { text = $0.replacingOccurrences(of: "[\\r\\n]+", with: "", options: .regularExpression) }
+                ), axis: .vertical).lineLimit(1...)
+            } else {
+                TextField(title, text: $text)
+            }
+        }
+        .labelsHidden()
+        .multilineTextAlignment(.leading)
+        .textFieldStyle(.roundedBorder)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct CompactFields<First: View, Second: View>: View {
+    let firstWidth: CGFloat?
+    let secondWidth: CGFloat?
+    let first: First
+    let second: Second
+
+    init(firstWidth: CGFloat? = nil, secondWidth: CGFloat? = nil,
+         @ViewBuilder first: () -> First, @ViewBuilder second: () -> Second) {
+        self.firstWidth = firstWidth
+        self.secondWidth = secondWidth
+        self.first = first()
+        self.second = second()
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 14) {
+            first.frame(width: firstWidth)
+            second.frame(width: secondWidth)
+        }
+    }
+}
+
 struct ContactFields: View {
     @Binding var phone: String
     @Binding var email: String
 
     var body: some View {
-        FieldPair {
-            TextField("Teléfono", text: $phone)
-            TextField("Correo electrónico", text: $email)
+        CompactFields(firstWidth: 172) {
+            WideTextField("Teléfono", text: $phone)
+        } second: {
+            WideTextField("Correo", text: $email, wraps: true)
         }
-    }
-}
-struct FieldPair<Content: View>: View {
-    @ViewBuilder var content: () -> Content
-
-    var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), alignment: .leading)], content: content)
     }
 }
 struct Notes: View {
@@ -544,11 +590,15 @@ struct StudentEditor: View {
                 }
             }
             Section("Datos de la alumna") {
-                TextField("Nombre y apellidos", text: $s.name)
-                TextField("Grupo", text: $s.group)
-                FieldPair {
-                    TextField("DNI / NIE", text: $s.dni)
-                    TextField("NUSS", text: $s.nuss)
+                CompactFields {
+                    WideTextField("Nombre y apellidos", text: $s.name, wraps: true)
+                } second: {
+                    WideTextField("Grupo", text: $s.group, wraps: true)
+                }
+                CompactFields {
+                    WideTextField("DNI / NIE", text: $s.dni)
+                } second: {
+                    WideTextField("NUSS", text: $s.nuss)
                 }
                 ContactFields(phone: $s.phone, email: $s.email)
             }
@@ -581,12 +631,13 @@ struct CompanyEditor: View {
     var body: some View {
         Form {
             FoldableSection("company.data", "Datos de la empresa", initiallyExpanded: true) {
-                FieldPair {
-                    TextField("Empresa", text: $c.name)
-                    TextField("CIF", text: $c.cif)
+                CompactFields(secondWidth: 132) {
+                    WideTextField("Empresa", text: $c.name, wraps: true)
+                } second: {
+                    WideTextField("CIF", text: $c.cif)
                 }
-                TextField("Dirección", text: $c.address)
-                TextField("Persona de contacto", text: $c.contact)
+                WideTextField("Dirección", text: $c.address, wraps: true)
+                WideTextField("Persona de contacto", text: $c.contact, wraps: true)
                 ContactFields(phone: $c.phone, email: $c.email)
             }
             FoldableSection("company.response", "Contacto y respuesta", initiallyExpanded: true) { CompanyResponseEditor(companyID: c.id) }
@@ -612,10 +663,22 @@ struct CompanyEditor: View {
                 DocumentTimeline(flow: Binding(get: { c.document }, set: { c.setDocument($0) }))
             }
             FoldableSection("company.followups", "Seguimiento mensual por empresa", initiallyExpanded: false) { CompanyFollowUps(companyID: c.id) }
-            FoldableSection("company.tutors", "Tutores", initiallyExpanded: false) { ForEach(store.db.tutors.filter { $0.companyID == c.id }) { tutorLink($0) } }
-            FoldableSection("company.students", "Alumnas vinculadas", initiallyExpanded: true) { ForEach(store.db.students.filter { store.db.companyIDs(for: $0).contains(c.id) }) { student in let statuses = store.db.practicePeriods(for: student).filter { $0.companyID == c.id }
-                    .map { student.periodAssignment($0.shiftID) }.joined(separator: " · ")
-                Button(student.name + " · " + statuses) { openStudent(student.id) } } }
+            FoldableSection("company.tutors", "Tutores", initiallyExpanded: false) {
+                LinkRows {
+                    ForEach(store.db.tutors.filter { $0.companyID == c.id }) { tutor in
+                        Button(tutor.name.nonEmpty ?? "Tutor sin nombre") { openTutor(tutor.id) }
+                    }
+                }
+            }
+            FoldableSection("company.students", "Alumnas vinculadas", initiallyExpanded: true) {
+                LinkRows {
+                    ForEach(store.db.students.filter { store.db.companyIDs(for: $0).contains(c.id) }) { student in
+                        let statuses = store.db.practicePeriods(for: student).filter { $0.companyID == c.id }
+                            .map { student.periodAssignment($0.shiftID) }.joined(separator: " · ")
+                        Button(student.name + " · " + statuses) { openStudent(student.id) }
+                    }
+                }
+            }
             FoldableSection("company.notes", "Observaciones") { Notes(text: $c.notes) }
             Section {
                 if store.db.students.contains(where: { store.db.companyIDs(for: $0).contains(c.id) }) || store.db.tutors.contains(where: { $0.companyID == c.id }) { Text("Para eliminar esta empresa, desvincula primero sus alumnas y tutores.").font(.caption) }
@@ -623,13 +686,59 @@ struct CompanyEditor: View {
             }
         }.formStyle(.grouped).contentMargins(.horizontal, 8, for: .scrollContent).contentMargins(.vertical, 8, for: .scrollContent)
     }
-    private func tutorLink(_ tutor: Tutor) -> some View {
-        VStack(alignment: .leading) {
-            Button(tutor.name.isEmpty ? "Tutor sin nombre" : tutor.name) { openTutor(tutor.id) }
-            Text("\(tutor.phone) · \(tutor.email)").foregroundStyle(.secondary).textSelection(.enabled)
+}
+struct LinkRows: Layout {
+    private let gap: CGFloat = 8
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> (frames: [CGRect], size: CGSize) {
+        var frames: [CGRect] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var usedWidth: CGFloat = 0
+        for view in subviews {
+            let ideal = view.sizeThatFits(.unspecified)
+            let itemWidth = min(ideal.width, width)
+            let size = view.sizeThatFits(ProposedViewSize(width: itemWidth, height: nil))
+            if x > 0 && x + itemWidth > width {
+                x = 0
+                y += rowHeight + gap
+                rowHeight = 0
+            }
+            frames.append(CGRect(x: x, y: y, width: itemWidth, height: size.height))
+            usedWidth = max(usedWidth, x + itemWidth)
+            x += itemWidth + gap
+            rowHeight = max(rowHeight, size.height)
+        }
+        return (frames, CGSize(width: usedWidth, height: y + rowHeight))
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        arrange(width: proposal.width ?? .infinity, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let row = arrange(width: proposal.width ?? bounds.width, subviews: subviews)
+        for (view, frame) in zip(subviews, row.frames) {
+            view.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                       anchor: .topLeading, proposal: ProposedViewSize(frame.size))
         }
     }
 }
+
+struct RecordLink: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "arrow.up.right.square")
+        }
+        .help(title)
+        .accessibilityLabel(title)
+    }
+}
+
 struct TutorEditor: View {
     @EnvironmentObject var store: Store
     @Binding var t: Tutor
@@ -638,13 +747,38 @@ struct TutorEditor: View {
     var body: some View {
         Form {
             Section("Tutor de empresa") {
-                TextField("Nombre y apellidos", text: $t.name)
-                Picker("Empresa", selection: $t.companyID) { Text("Sin asignar").tag(nil as UUID?); ForEach(store.db.companies) { Text($0.name).tag(Optional($0.id)) } }
-                    .disabled(!store.db.students(tutoredBy: t.id).isEmpty)
-                if let id = t.companyID { Button("Abrir ficha de empresa") { openCompany(id) } }
+                CompactFields {
+                    WideTextField("Nombre y apellidos", text: $t.name, wraps: true)
+                } second: {
+                    if store.db.students(tutoredBy: t.id).isEmpty {
+                        HStack(spacing: 8) {
+                            Picker("Empresa", selection: $t.companyID) {
+                                Text("Sin asignar").tag(nil as UUID?)
+                                ForEach(store.db.companies) { Text($0.name).tag(Optional($0.id)) }
+                            }
+                            if let id = t.companyID {
+                                RecordLink(title: "Abrir ficha de empresa") { openCompany(id) }
+                            }
+                        }
+                    } else if let company = store.db.companies.first(where: { $0.id == t.companyID }) {
+                        HStack(spacing: 6) {
+                            Text("Empresa").font(.caption).foregroundStyle(.secondary)
+                            Button(company.name.nonEmpty ?? "Empresa sin nombre") { openCompany(company.id) }
+                                .help("Abrir ficha de empresa")
+                        }
+                    } else {
+                        Text("Sin empresa").foregroundStyle(.secondary)
+                    }
+                }
                 ContactFields(phone: $t.phone, email: $t.email)
             }
-            Section("Alumnas tutorizadas") { ForEach(store.db.students(tutoredBy: t.id)) { student in Button(student.name) { openStudent(student.id) } } }
+            Section("Alumnas tutorizadas") {
+                LinkRows {
+                    ForEach(store.db.students(tutoredBy: t.id)) { student in
+                        Button(student.name.nonEmpty ?? "Alumna sin nombre") { openStudent(student.id) }
+                    }
+                }
+            }
             Section { Notes(text: $t.notes) }
             Section {
                 if store.db.students.contains(where: { $0.tutorID == t.id || $0.shifts.contains(where: { $0.tutorID == t.id }) }) { Text("Desvincula sus alumnas antes de cambiar su empresa o eliminarlo.").font(.caption) }
