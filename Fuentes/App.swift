@@ -599,6 +599,7 @@ struct StudentEditor: View {
                     WideTextField("NUSS", text: $s.nuss)
                 }
                 ContactFields(phone: $s.phone, email: $s.email)
+                Checklist(items: $s.paperwork, only: [0])
             }
             Section { DeleteButton(title: "Eliminar alumna") { store.db.students.removeAll { $0.id == s.id } } }
         }.formStyle(.grouped)

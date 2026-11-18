@@ -131,7 +131,6 @@ struct PracticePeriodsEditor: View {
                     if let shift { s.shifts[shift].paperwork = value }
                     else { s.paperwork = value }
                 }), only: [6])
-                if shiftID == nil { Checklist(items: $s.paperwork, only: [0]) }
                 ForEach(period.changes) { change in
                     if let i = s.shifts.firstIndex(where: { $0.id == change.id }) {
                         VStack(alignment: .leading) {
