@@ -516,7 +516,7 @@ struct StudentEditor: View {
                         LabeledContent("Previstas hasta ayer", value: formattedHours(result.elapsed))
                         LabeledContent("Restantes del objetivo", value: formattedHours(s.remainingHours(after: result.elapsed)))
                     }
-                    if s.hasStart {
+                    if s.firstPracticeStart != nil {
                         Section("Horario y previsión") { calculation }
                     }
                 }.formStyle(.grouped)
@@ -605,16 +605,16 @@ struct StudentEditor: View {
     }
     @ViewBuilder var calculation: some View {
         if let error = result.error { Text(error).foregroundStyle(.red) }
-        if let end = result.end {
+        if let end = result.end, let start = s.firstPracticeStart {
             LabeledContent("Fin calculado", value: dateText(end))
             LabeledContent("Horas necesarias en la última jornada", value: String(format: "%.2f h", result.lastHours))
             LabeledContent("Horas previstas hasta ayer", value: String(format: "%.1f / %.1f", result.elapsed, s.requiredHours))
             Text("Previsión según horario y calendario; no es un registro de asistencia.").font(.caption).foregroundStyle(.secondary)
-            if s.start < store.db.calendarFrom || end > store.db.calendarTo { Label("El cálculo sale del periodo de calendario revisado. Amplía y revisa el calendario.", systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
+            if start < store.db.calendarFrom || end > store.db.calendarTo { Label("El cálculo sale del periodo de calendario revisado. Amplía y revisa el calendario.", systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
             if !store.db.instituteDaysConfirmed { Text("Fin provisional: faltan los días de libre disposición.").foregroundStyle(.orange) }
             Toggle("Ajustar fecha final manualmente", isOn: $s.manualEnd).onChange(of: s.manualEnd) { _, value in if value { s.end = end } }
             if s.manualEnd {
-                DatePicker("Fin ajustado", selection: $s.end, in: s.start..., displayedComponents: .date)
+                DatePicker("Fin ajustado", selection: $s.end, in: start..., displayedComponents: .date)
                 Text(String(format: "Hasta esa fecha, el horario suma %.1f h (%+.1f h respecto a %.1f).", result.scheduledToManual, result.scheduledToManual - s.requiredHours, s.requiredHours)).foregroundStyle(.orange)
                 Text("Si se ha reducido la jornada, añade el cambio de horas para que el cálculo refleje la nueva situación.").font(.caption)
             }

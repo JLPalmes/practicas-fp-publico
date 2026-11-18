@@ -68,7 +68,6 @@ extension Database {
         }
     }
     func intervals(for student: Student, at companyID: UUID, until end: Date) -> [(start: Date, end: Date)] {
-        guard student.hasStart else { return [] }
         return practicePeriods(for: student).compactMap { period in
             guard period.companyID == companyID, student.periodAssignment(period.shiftID) == "Definitiva",
                   let start = period.from else { return nil }
@@ -82,7 +81,7 @@ extension Database {
     func monthlySchedule(for companyID: UUID) -> [ScheduledContact] {
         guard let company = companies.first(where: { $0.id == companyID }) else { return [] }
         var result: [String: ScheduledContact] = [:]
-        for student in definitiveStudents(companyID) where student.hasStart {
+        for student in definitiveStudents(companyID) where student.firstPracticeStart != nil {
             let calc = calculate(student, self)
             guard calc.error == nil, let calculatedEnd = calc.end else { continue }
             let end = cal.startOfDay(for: student.manualEnd ? student.end : calculatedEnd)

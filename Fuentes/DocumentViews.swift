@@ -53,7 +53,7 @@ struct StudentDocuments: View {
     }
 }
 private struct InitialDailyHoursField: View {
-    @Binding var hours: Double
+    @Binding var hours: Double?
     @Environment(\.locale) private var locale
     @FocusState private var editing: Bool
     @LocalState private var draft = ""
@@ -63,17 +63,17 @@ private struct InitialDailyHoursField: View {
     var body: some View {
         TextField("Horas diarias iniciales", text: $draft)
             .focused($editing)
-            .onAppear { draft = hours.formatted(style) }
+            .onAppear { draft = hours.map { $0.formatted(style) } ?? "" }
             .onChange(of: draft) { _, value in
                 guard editing, let parsed = try? style.parseStrategy.parse(value),
                       parsed.isFinite, parsed > 0, parsed <= 24 else { return }
                 hours = parsed
             }
             .onChange(of: hours) { _, value in
-                if !editing { draft = value.formatted(style) }
+                if !editing { draft = value.map { $0.formatted(style) } ?? "" }
             }
             .onChange(of: editing) { _, focused in
-                if !focused { draft = hours.formatted(style) }
+                if !focused { draft = hours.map { $0.formatted(style) } ?? "" }
             }
             .onSubmit { editing = false }
     }
@@ -91,57 +91,47 @@ struct PracticePeriodsEditor: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Práctica \(offset + 1) · " + (store.db.companies.first { $0.id == period.companyID }?.name ?? "Sin empresa")).font(.headline)
                 Text("\(period.from.map(dateText) ?? "Inicio sin establecer") → \(period.end.map(dateText) ?? "Fin sin calcular")").font(.callout).foregroundStyle(.secondary)
-                if let shiftID = period.shiftID, let i = s.shifts.firstIndex(where: { $0.id == shiftID }) {
-                    DatePicker("Inicio del periodo", selection: $s.shifts[i].from, displayedComponents: .date)
-                    TextField("Horas diarias iniciales del periodo", value: $s.shifts[i].hours, format: .number)
-                    HStack(spacing: 8) {
-                        Picker("Empresa", selection: Binding(get: { s.shifts.first { $0.id == shiftID }?.companyID }, set: { store.assignPeriod(s.id, periodID: shiftID, to: $0) })) {
-                            ForEach(store.db.companies) { company in Text(company.name).tag(Optional(company.id)).disabled(!store.db.canAssignPeriod(s.id, periodID: shiftID, to: company.id)) }
-                        }
-                        if let id = period.companyID {
-                            RecordLink(title: "Abrir ficha de empresa") { openCompany(id) }
-                        }
-                    }
-                    HStack(spacing: 8) {
-                        Picker("Tutor", selection: $s.shifts[i].tutorID) {
-                            Text("Sin asignar").tag(nil as UUID?)
-                            ForEach(store.db.tutors.filter { $0.companyID == period.companyID }) { Text($0.name).tag(Optional($0.id)) }
-                        }
-                        if let id = period.tutorID {
-                            RecordLink(title: "Abrir ficha del tutor") { openTutor(id) }
+                let shiftID = period.shiftID
+                let shift = shiftID.flatMap { id in s.shifts.firstIndex { $0.id == id } }
+                HStack(spacing: 8) {
+                    Picker("Empresa", selection: Binding(get: { period.companyID }, set: { companyID in
+                        if let shiftID { store.assignPeriod(s.id, periodID: shiftID, to: companyID) }
+                        else { store.assign(s.id, to: companyID) }
+                    })) {
+                        if shiftID == nil { Text("Sin asignar").tag(nil as UUID?) }
+                        ForEach(store.db.companies) { company in
+                            Text(company.name).tag(Optional(company.id))
+                                .disabled(!canAssign(company.id, to: shiftID))
                         }
                     }
-                    Checklist(items: Binding(get: { s.shifts.first { $0.id == shiftID }?.paperwork ?? steps(studentPaperworkTitles) }, set: { value in if let i = s.shifts.firstIndex(where: { $0.id == shiftID }) { s.shifts[i].paperwork = value } }), only: [5,6])
-                    DeleteButton(title: "Eliminar este periodo") { s.shifts.removeAll { $0.id == shiftID } }
-                } else {
-                    HStack(spacing: 8) {
-                        Picker("Empresa", selection: Binding(get: { s.companyID }, set: { store.assign(s.id, to: $0) })) {
-                            Text("Sin asignar").tag(nil as UUID?)
-                            ForEach(store.db.companies) { company in Text(company.name).tag(Optional(company.id)).disabled(!store.db.canAssign(s.id, to: company.id)) }
-                        }
-                        if let id = period.companyID {
-                            RecordLink(title: "Abrir ficha de empresa") { openCompany(id) }
+                    if let id = period.companyID {
+                        RecordLink(title: "Abrir ficha de empresa") { openCompany(id) }
+                    }
+                }
+                HStack(spacing: 8) {
+                    Picker("Tutor", selection: shift.map { $s.shifts[$0].tutorID } ?? $s.tutorID) {
+                        Text("Sin asignar").tag(nil as UUID?)
+                        ForEach(store.db.tutors.filter { period.companyID != nil && $0.companyID == period.companyID }) {
+                            Text($0.name).tag(Optional($0.id))
                         }
                     }
-                    HStack(spacing: 8) {
-                        Picker("Tutor", selection: $s.tutorID) {
-                            Text("Sin asignar").tag(nil as UUID?)
-                            ForEach(store.db.tutors.filter { s.companyID != nil && $0.companyID == s.companyID }) { Text($0.name).tag(Optional($0.id)) }
-                        }
-                        if let id = period.tutorID {
-                            RecordLink(title: "Abrir ficha del tutor") { openTutor(id) }
-                        }
+                    if let id = period.tutorID {
+                        RecordLink(title: "Abrir ficha del tutor") { openTutor(id) }
                     }
-                    Checklist(items: $s.paperwork, only: [0,5,6])
                 }
                 assignmentControl(for: period)
-                if period.shiftID == nil {
-                    Toggle("Fecha de inicio establecida", isOn: $s.hasStart)
-                    if s.hasStart {
-                        DatePicker("Inicio del periodo", selection: $s.start, displayedComponents: .date)
-                    }
-                    InitialDailyHoursField(hours: $s.hours)
-                }
+                OptionalDateEditor(title: "Inicio del periodo", date: Binding(
+                    get: { s.practiceStart(shiftID) },
+                    set: { s.setPracticeStart($0, periodID: shiftID); s.confirmStartedAndPreviousPeriods() }
+                ))
+                InitialDailyHoursField(hours: shift.map { $s.shifts[$0].hours } ?? Binding(
+                    get: { s.hours }, set: { if let value = $0 { s.hours = value } }
+                ))
+                Checklist(items: Binding(get: { s.periodPaperwork(shiftID) }, set: { value in
+                    if let shift { s.shifts[shift].paperwork = value }
+                    else { s.paperwork = value }
+                }), only: [6])
+                if shiftID == nil { Checklist(items: $s.paperwork, only: [0]) }
                 ForEach(period.changes) { change in
                     if let i = s.shifts.firstIndex(where: { $0.id == change.id }) {
                         VStack(alignment: .leading) {
@@ -152,7 +142,10 @@ struct PracticePeriodsEditor: View {
                         }.padding(8).background(.background).clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
-                StudentDocuments(studentID: s.id, periodID: period.shiftID)
+                StudentDocuments(studentID: s.id, periodID: shiftID)
+                if let shiftID {
+                    DeleteButton(title: "Eliminar este periodo") { s.shifts.removeAll { $0.id == shiftID } }
+                }
             }.padding(8).background(accent.opacity(0.04)).clipShape(RoundedRectangle(cornerRadius: 12))
         }
         if periods.last?.id == displayedPeriodID {
@@ -164,6 +157,11 @@ struct PracticePeriodsEditor: View {
             }.disabled(store.db.companies.isEmpty)
         }
     }
+    private func canAssign(_ companyID: UUID, to shiftID: UUID?) -> Bool {
+        if let shiftID { return store.db.canAssignPeriod(s.id, periodID: shiftID, to: companyID) }
+        return store.db.canAssign(s.id, to: companyID)
+    }
+
     @ViewBuilder private func assignmentControl(for period: PracticePeriod) -> some View {
         if s.isPreviousPeriod(period.shiftID) || s.requiresDefinitiveAssignment(period.shiftID) {
             LabeledContent("Estado de asignación", value: s.periodAssignment(period.shiftID))
@@ -195,7 +193,8 @@ struct PracticePeriodsEditor: View {
         let latest = ([s.start] + s.shifts.map(\.from)).max() ?? s.start
         let nextDay = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: latest))!
         let date = max(cal.startOfDay(for: Date()), nextDay)
-        let period = Shift(from: date)
+        var period = Shift(from: date)
+        if companyID != nil { period.hasPracticeStart = false }
         var updated = store.db
         guard let i = updated.students.firstIndex(where: { $0.id == s.id }) else { return }
         updated.students[i].shifts.append(period)

@@ -66,7 +66,7 @@ extension Database {
                 }
                 let periodCompany: UUID? = key == "initial" ? student.companyID : student.shifts.first(where: { $0.id.uuidString == key })?.companyID
                 let intervalEnd = periods.first { $0.shiftID == periodID }?.end
-                let finished = paperwork[6].done || (student.hasStart && intervalEnd.map { cal.startOfDay(for: $0) < cal.startOfDay(for: today) } == true)
+                let finished = paperwork[6].done || (intervalEnd.map { cal.startOfDay(for: $0) < cal.startOfDay(for: today) } == true)
                 if periodCompany != nil && !annexII.done("archived") {
                     tasks.append(PendingTask(id: "\(student.id)-\(key)-8", title: name,
                         detail: "Anexo II · " + annexII.nextTitle + " · " + (key == "initial" ? "periodo inicial" : "periodo posterior"),
@@ -103,7 +103,7 @@ extension Database {
         let selectedStudents = students.filter { (studentID == nil || $0.id == studentID) && (companyID == nil || self.companyIDs(for: $0).contains(companyID!)) }
         for student in selectedStudents {
             let result = calculate(student, self, today: today)
-            lines += ["ALUMNA: \(student.name)", "Grupo: \(student.group)", "Objetivo: \(student.requiredHours) h · Previstas hasta ayer: \(result.elapsed) h", "Inicio: \(student.hasStart ? dateText(student.start) : "Sin establecer")", "Fin: \(result.end.map { dateText(student.manualEnd ? student.end : $0) } ?? "Sin calcular")"]
+            lines += ["ALUMNA: \(student.name)", "Grupo: \(student.group)", "Objetivo: \(student.requiredHours) h · Previstas hasta ayer: \(result.elapsed) h", "Inicio: \(student.firstPracticeStart.map(dateText) ?? "Sin establecer")", "Fin: \(result.end.map { dateText(student.manualEnd ? student.end : $0) } ?? "Sin calcular")"]
             lines.append("Jornada inicial: \(student.hours) h/día")
             lines += student.shifts.sorted { $0.from < $1.from }.map { "Cambio desde \(dateText($0.from)): \($0.hours.map { String($0) } ?? "Sin jornada") h/día" }
             if let end = result.end, student.start < calendarFrom || end > calendarTo { lines.append("Previsión fuera del periodo de calendario revisado.") }

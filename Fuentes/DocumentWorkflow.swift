@@ -145,11 +145,12 @@ extension Database {
         for index in 0...practices.count {
             let shift = index == 0 ? nil : practices[index - 1]
             let start = shift?.from ?? s.start
-            let next = index < practices.count ? practices[index].from : nil
+            let next = practices.dropFirst(index).first { s.practiceStart($0.id) != nil }?.from
+            let nextBoundary = practices.dropFirst(index).first?.from
             let periodEnd = next.map { cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: $0))! }
             let finalEnd = periodEnd.map { boundary in end.map { min($0, boundary) } ?? boundary } ?? end
-            let changes = s.shifts.filter { $0.companyID == nil && $0.from >= start && (next == nil || $0.from < next!) }.sorted { $0.from < $1.from }
-            result.append(PracticePeriod(id: shift?.id ?? s.id, companyID: shift?.companyID ?? s.companyID, tutorID: shift?.tutorID ?? (shift == nil ? s.tutorID : nil), from: s.hasStart ? start : nil, end: s.practiceCompletion(shift?.id) ?? finalEnd, hours: shift == nil ? s.hours : shift?.hours, shiftID: shift?.id, changes: changes))
+            let changes = s.shifts.filter { change in change.companyID == nil && change.from >= start && (nextBoundary.map { boundary in change.from < boundary } ?? true) }.sorted { $0.from < $1.from }
+            result.append(PracticePeriod(id: shift?.id ?? s.id, companyID: shift?.companyID ?? s.companyID, tutorID: shift?.tutorID ?? (shift == nil ? s.tutorID : nil), from: s.practiceStart(shift?.id), end: s.practiceStart(shift?.id) == nil ? nil : s.practiceCompletion(shift?.id) ?? finalEnd, hours: shift == nil ? s.hours : shift?.hours, shiftID: shift?.id, changes: changes))
         }
         return result
     }
@@ -171,7 +172,7 @@ extension Database {
         case .noTutor: return periods.contains { $0.companyID != nil && $0.tutorID == nil }
         case .annexI: return periods.contains { $0.companyID != nil && !student.document(.annexI, periodID: $0.shiftID).done("archived") }
         case .finishMonth:
-            guard student.hasStart, let end = calculate(student, self).end else { return false }
+            guard student.firstPracticeStart != nil, let end = calculate(student, self).end else { return false }
             return cal.isDate(student.manualEnd ? student.end : end, equalTo: today, toGranularity: .month)
         case .overdue:
             return companyIDs(for: student).contains { id in monthlySchedule(for: id).contains { !$0.historical && $0.saved?.completed != true && cal.startOfDay(for: $0.due) < cal.startOfDay(for: today) } }

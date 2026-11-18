@@ -41,6 +41,7 @@ struct Shift: Codable, Identifiable, Equatable {
     var companyID: UUID?
     var tutorID: UUID?
     var assignment: String?
+    var hasPracticeStart: Bool?
     // Separate annex workflow when this period starts at a different company.
     var documents: [DocumentFlow]?
     var paperwork: [Step]?
@@ -61,6 +62,27 @@ struct Student: Codable, Identifiable, Equatable {
     var previousCourseHours: Double?
     var nextCourseHours: Double?
 
+    func practiceStart(_ periodID: UUID?) -> Date? {
+        guard let periodID else { return hasStart ? start : nil }
+        guard let period = shifts.first(where: { $0.id == periodID }), period.hasPracticeStart != false else { return nil }
+        return period.from
+    }
+
+    var firstPracticeStart: Date? {
+        ([practiceStart(nil)] + shifts.filter { $0.companyID != nil }.map { practiceStart($0.id) }).compactMap { $0 }.min()
+    }
+
+    mutating func setPracticeStart(_ date: Date?, periodID: UUID?) {
+        if let periodID {
+            guard let index = shifts.firstIndex(where: { $0.id == periodID }) else { return }
+            shifts[index].hasPracticeStart = date != nil
+            if let date { shifts[index].from = date }
+        } else {
+            hasStart = date != nil
+            if let date { start = date }
+        }
+    }
+
     func isPreviousPeriod(_ shiftID: UUID?) -> Bool {
         shifts.filter { $0.companyID != nil }.sorted { $0.from < $1.from }.last?.id != shiftID
     }
@@ -70,7 +92,7 @@ struct Student: Codable, Identifiable, Equatable {
         let company = shiftID == nil ? companyID : period?.companyID
         guard company != nil else { return false }
         if isPreviousPeriod(shiftID) { return true }
-        guard hasStart, let date = shiftID == nil ? start : period?.from else { return false }
+        guard let date = practiceStart(shiftID) else { return false }
         return cal.startOfDay(for: date) < cal.startOfDay(for: today)
     }
 
@@ -147,25 +169,29 @@ func calculate(_ s: Student, _ db: Database, today: Date = Date()) -> Calculatio
     guard s.requiredHours.isFinite && s.requiredHours > 0 && s.requiredHours <= 10000 else {
         return Calculation(error: "Las horas objetivo deben ser mayores de 0 y no superar 10.000.")
     }
-    guard s.hasStart else { return Calculation() }
-    guard s.hours.isFinite && s.hours > 0 && s.hours <= 24 else {
+    guard let start = s.firstPracticeStart else { return Calculation() }
+    guard !s.hasStart || (s.hours.isFinite && s.hours > 0 && s.hours <= 24) else {
         return Calculation(error: "La jornada inicial debe tener más de 0 y hasta 24 horas.")
     }
-    guard s.shifts.allSatisfy({ shift in
+    var activePeriod = s.hasStart
+    let changes = s.shifts.sorted { $0.from < $1.from }.filter { shift in
+        if shift.companyID != nil { activePeriod = shift.hasPracticeStart != false }
+        return activePeriod
+    }
+    guard changes.allSatisfy({ shift in
         guard let hours = shift.hours else { return false }
         return hours.isFinite && hours > 0 && hours <= 24
     }) else {
         return Calculation(error: "Completa las horas de todos los periodos (más de 0 y hasta 24).")
     }
-    let changes = s.shifts.sorted { $0.from < $1.from }
-    guard changes.allSatisfy({ cal.startOfDay(for: $0.from) >= cal.startOfDay(for: s.start) }),
+    guard changes.allSatisfy({ cal.startOfDay(for: $0.from) >= cal.startOfDay(for: s.hasStart ? s.start : start) }),
           Set(changes.map { cal.startOfDay(for: $0.from) }).count == changes.count else {
         return Calculation(error: "Los cambios deben ser posteriores o iguales al inicio y tener fechas distintas.")
     }
     guard db.exclusions.allSatisfy({ cal.startOfDay(for: $0.from) <= cal.startOfDay(for: $0.to) }) else {
         return Calculation(error: "Hay un intervalo invertido en el calendario.")
     }
-    var result = Calculation(); var total = 0.0; var d = cal.startOfDay(for: s.start)
+    var result = Calculation(); var total = 0.0; var d = cal.startOfDay(for: start)
     let now = cal.startOfDay(for: today); let manual = cal.startOfDay(for: s.end)
     let placements = changes.filter { $0.companyID != nil }
     let closures = [s.practiceCompletion(nil)] + placements.map { s.practiceCompletion($0.id) }
@@ -207,7 +233,7 @@ extension Database {
         var companyID = student.companyID
         for period in student.shifts.sorted(by: { $0.from < $1.from })
             where cal.startOfDay(for: period.from) <= cal.startOfDay(for: date) {
-            if let changedCompany = period.companyID { companyID = changedCompany }
+            if let changedCompany = period.companyID, period.hasPracticeStart != false { companyID = changedCompany }
         }
         return companyID
     }

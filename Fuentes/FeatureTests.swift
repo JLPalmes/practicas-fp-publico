@@ -166,6 +166,16 @@ import PDFKit
         let withGap = calculate(closedStudent, completedInitial, today: gap)
         let withoutGap = calculate(documentStudent, periodDB, today: gap)
         check(abs(withoutGap.elapsed - withGap.elapsed - 16) < 0.001, "Las cuatro jornadas entre prácticas no suman horas")
+        var independent = closedStudent
+        independent.setPracticeStart(nil, periodID: period.id)
+        check(completedInitial.practicePeriods(for: independent)[1].from == nil &&
+              calculate(independent, completedInitial, today: day("2027-02-02")).elapsed == withGap.elapsed,
+              "Un segundo periodo sin inicio conserva la ficha y no suma horas")
+        independent.setPracticeStart(day("2027-02-01"), periodID: period.id)
+        independent.setPracticeStart(nil, periodID: nil)
+        check(completedInitial.practicePeriods(for: independent)[1].from == day("2027-02-01") &&
+              calculate(independent, completedInitial, today: day("2027-02-02")).elapsed == 6,
+              "El segundo periodo calcula su jornada con su propia fecha aunque falte la del primero")
         check(!completedInitial.monthlySchedule(for: nextCompany.id).isEmpty, "Cerrar la primera práctica no corta los contactos de la posterior")
         check(!completedInitial.students[0].latestPracticePaperwork[6].done, "Estado global refleja la última práctica, no la anterior cerrada")
         if let index = completedInitial.students[0].shifts.firstIndex(where: { $0.id == period.id }) {
