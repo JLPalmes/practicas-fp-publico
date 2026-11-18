@@ -3,12 +3,9 @@
 # Copyright (C) 2026 Juan Luis (JLPalmes)
 set -eu
 cd "$(dirname "$0")"
-# Use the same release version as the Windows Tauri installer.
-version=$(/usr/bin/plutil -extract version raw -o - Experimentos/Tauri/tauri.conf.json)
-if [[ ! "$version" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
-    echo "La versión debe contener tres números." >&2
-    exit 1
-fi
+# macOS releases can advance independently of Windows.
+version=${PRACTICASFP_MAC_VERSION:-2.1.6}
+[[ "$version" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || { echo "Versión de Mac no válida." >&2; exit 1; }
 mkdir -p .build PracticasFP.app/Contents/MacOS PracticasFP.app/Contents/Resources
 cp LICENSE PracticasFP.app/Contents/Resources/LICENSE
 cp AVISO-LICENCIA.txt PracticasFP.app/Contents/Resources/AVISO-LICENCIA.txt
@@ -30,7 +27,29 @@ cat > PracticasFP.app/Contents/Info.plist <<PLIST
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
-swiftc -target arm64-apple-macosx14.0 -parse-as-library Fuentes/Model.swift Fuentes/Format5.swift Fuentes/DocumentWorkflow.swift Fuentes/Workflow.swift Fuentes/CompanyViews.swift Fuentes/Store.swift Fuentes/Import.swift Fuentes/ImportView.swift Fuentes/Reports.swift Fuentes/Features.swift Fuentes/DocumentViews.swift Fuentes/App.swift -o .build/PracticasFP-arm64 -framework SwiftUI -framework AppKit -module-cache-path .build/cache
+sparkle_flags=()
+plist=PracticasFP.app/Contents/Info.plist
+framework=PracticasFP.app/Contents/Frameworks/Sparkle.framework
+# Remove the previously bundled framework when switching to a development build.
+if [[ -d "$framework" ]]; then rm -rf -- "$framework"; fi
+if [[ -n "${PRACTICASFP_SPARKLE_DIR:-}" ]]; then
+    : "${PRACTICASFP_SPARKLE_PUBLIC_KEY:?Falta la clave pública de Sparkle}"
+    feed="${PRACTICASFP_SPARKLE_FEED:-https://github.com/JLPalmes/practicas-fp-publico/releases/download/actualizaciones-mac/appcast.xml}"
+    [[ "$feed" == https://* ]] || { echo "El catálogo debe utilizar HTTPS." >&2; exit 1; }
+    mkdir -p "${framework:h}"
+    ditto "$PRACTICASFP_SPARKLE_DIR/Sparkle.framework" "$framework"
+    plutil -insert SUFeedURL -string "$feed" "$plist"
+    plutil -insert SUPublicEDKey -string "$PRACTICASFP_SPARKLE_PUBLIC_KEY" "$plist"
+    plutil -insert SUEnableAutomaticChecks -bool YES "$plist"
+    plutil -insert SUAllowsAutomaticUpdates -bool NO "$plist"
+    plutil -insert SUScheduledCheckInterval -integer 86400 "$plist"
+    plutil -insert SUScheduledImpatientCheckInterval -integer 86400 "$plist"
+    plutil -insert SUVerifyUpdateBeforeExtraction -bool YES "$plist"
+    plutil -insert SURequireSignedFeed -bool YES "$plist"
+    plutil -insert SUSignedFeedFailureExpirationInterval -integer 0 "$plist"
+    sparkle_flags=(-D ACTUALIZACIONES -F "${framework:h}" -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks)
+fi
+swiftc "${sparkle_flags[@]}" -target arm64-apple-macosx14.0 -parse-as-library Fuentes/Model.swift Fuentes/Format5.swift Fuentes/DocumentWorkflow.swift Fuentes/Workflow.swift Fuentes/CompanyViews.swift Fuentes/Store.swift Fuentes/Import.swift Fuentes/ImportView.swift Fuentes/Reports.swift Fuentes/Features.swift Fuentes/DocumentViews.swift Fuentes/App.swift -o .build/PracticasFP-arm64 -framework SwiftUI -framework AppKit -module-cache-path .build/cache
 cp .build/PracticasFP-arm64 PracticasFP.app/Contents/MacOS/PracticasFP
 xattr -d com.apple.FinderInfo PracticasFP.app 2>/dev/null || true
 codesign --force --sign - PracticasFP.app

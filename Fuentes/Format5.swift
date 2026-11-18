@@ -24,20 +24,22 @@ struct Format5Period: Decodable, Identifiable {
         }
         guard hasStart else { return Calculation() }
         let startDay = cal.startOfDay(for: start)
-        let endDay = cal.startOfDay(for: end)
-        guard !manualEnd || endDay >= startDay else {
+        let completion = paperwork.dropFirst(6).first.flatMap { $0.done ? $0.date : nil }
+        let endDay = cal.startOfDay(for: completion ?? end)
+        let fixedEnd = completion != nil || manualEnd
+        guard !fixedEnd || endDay >= startDay else {
             return Calculation(error: "El fin manual debe ser igual o posterior al inicio.")
         }
         var schedule = Student()
         schedule.hasStart = true
         schedule.start = start
-        schedule.end = end
-        schedule.manualEnd = manualEnd
+        schedule.end = endDay
+        schedule.manualEnd = fixedEnd
         schedule.hours = hours
-        schedule.targetHours = manualEnd && targetHours == 0 ? 0.01 : targetHours
+        schedule.targetHours = fixedEnd && targetHours == 0 ? 0.01 : targetHours
         schedule.shifts = shifts
         var result = calculate(schedule, calendar, today: today)
-        if manualEnd && result.error == nil {
+        if fixedEnd && result.error == nil {
             let yesterday = cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: today))!
             schedule.end = min(yesterday, endDay)
             result.elapsed = calculate(schedule, calendar, today: today).scheduledToManual

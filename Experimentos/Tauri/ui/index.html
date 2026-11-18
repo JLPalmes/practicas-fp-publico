@@ -12,6 +12,7 @@
     <button id="calendar" type="button" disabled>Calendario</button>
   </nav>
   <div class="header-actions">
+    <button id="buscar-actualizaciones" type="button" hidden>Buscar actualizaciones…</button>
     <button id="reports" type="button" disabled>Informes</button>
     <button id="backups" type="button" disabled>Datos y copias</button>
   </div>
@@ -205,7 +206,8 @@
 <button type="button" class="open-tutor" hidden>Abrir tutor</button>
 <div>
   <label><input class="practice-start" type="checkbox"> Práctica iniciada</label>
-  <label><input class="practice-end" type="checkbox"> Práctica finalizada</label>
+  <label><input class="practice-end" type="checkbox"> Práctica terminada</label>
+  <label class="practice-completion" hidden>Fecha de cierre <input class="practice-end-date" type="date"></label>
 </div>
 <div class="shifts"></div>
 <button type="button" class="add-shift">Añadir cambio de jornada</button>
@@ -217,8 +219,17 @@
   <label>Nuevas horas diarias <input inputmode="decimal" class="hours"></label>
   <button type="button" class="remove-shift">Quitar</button>
 </div></template>
+<dialog id="actualizacion">
+  <h2 id="actualizacion-titulo">Actualizaciones</h2>
+  <p id="actualizacion-fecha"></p>
+  <p id="actualizacion-notas" style="white-space: pre-wrap"></p>
+  <p id="actualizacion-estado" role="status"></p>
+  <button id="actualizacion-instalar" type="button" hidden>Descargar y abrir el instalador…</button>
+  <button id="actualizacion-cerrar" type="button">Cerrar</button>
+</dialog>
 <script src="app.js"></script>
 <script src="calendar.js"></script>
 <script src="reports.js"></script>
 <script src="backups.js"></script>
+<script src="actualizaciones.js"></script>
 </html>

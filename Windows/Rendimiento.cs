@@ -92,6 +92,7 @@ internal static class Rendimiento {
             }).Select(p=>J.Obj(
             "company",p.Company,"tutor",p.Tutor,"assignment",Model.PeriodAssignment(record,p.Owner),
             "practice",new[]{5,6}.Select(i=>J.B(J.A(p.Owner,"paperwork")[i],"done")).ToArray(),
+            "practiceEndDate",J.B(J.A(p.Owner,"paperwork")[6],"done")?IsoDate(J.Date(J.A(p.Owner,"paperwork")[6],"date")):"",
             "start",J.B(p.Owner,"hasStart")?IsoDate(p.Start):"",
             "end",J.B(p.Owner,"manualEnd")?IsoDate(J.Date(p.Owner,"end")):"",
             "forecastEnd",p.End.HasValue?IsoDate(p.End.Value):"",
@@ -236,9 +237,16 @@ internal static class Rendimiento {
                     for(int j=0;j<2;j++) {
                         var step=J.D(J.A(period,"paperwork")[5+j]);
                         if(!(practice[j] is bool))throw new ArgumentException("Revisa el estado de las prácticas.");
-                        if(J.B(step,"done")==(bool)practice[j])continue;
-                        step["done"]=practice[j];
-                        if((bool)practice[j])step["date"]=J.Stamp(J.Today);
+                        bool done=(bool)practice[j];
+                        bool previouslyDone=J.B(step,"done");
+                        if(j==1&&done) {
+                            var completion=OptionalDate(edits[i],"practiceEndDate","la fecha de práctica terminada");
+                            if(completion.HasValue&&value.Start.HasValue&&completion.Value<value.Start.Value)
+                                throw new ArgumentException("La práctica no puede terminar antes de comenzar.");
+                            if(completion.HasValue||!previouslyDone)
+                                step["date"]=J.Stamp(completion??value.End??J.Today);
+                        } else if(done&&!previouslyDone)step["date"]=J.Stamp(J.Today);
+                        step["done"]=done;
                     }
                 }
             }

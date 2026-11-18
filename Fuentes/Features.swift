@@ -51,7 +51,8 @@ extension Database {
             func add(_ key: String, _ detail: String) {
                 tasks.append(PendingTask(id: "\(student.id)-\(key)", title: name, detail: detail, studentID: student.id))
             }
-            for period in practicePeriods(for: student) where student.periodAssignment(period.shiftID) != "Definitiva" {
+            let periods = practicePeriods(for: student, today: today)
+            for period in periods where student.periodAssignment(period.shiftID) != "Definitiva" {
                 add("assignment-\(period.id)", "Asignación pendiente de confirmar · " + (companies.first { $0.id == period.companyID }?.name ?? "Sin empresa"))
             }
             if student.companyID != nil && student.tutorID == nil { add("tutor", "Tutor del periodo inicial pendiente") }
@@ -64,11 +65,7 @@ extension Database {
                     add("\(key)-2", detail + " · " + (key == "initial" ? "periodo inicial" : "periodo posterior"))
                 }
                 let periodCompany: UUID? = key == "initial" ? student.companyID : student.shifts.first(where: { $0.id.uuidString == key })?.companyID
-                let calculation = calculate(student, self, today: today)
-                let practiceEnd = calculation.end.map { student.manualEnd ? student.end : $0 }
-                let start = key == "initial" ? student.start : student.shifts.first(where: { $0.id.uuidString == key })?.from ?? student.start
-                let nextStart = student.shifts.filter { $0.companyID != nil && (key == "initial" ? $0.from >= start : $0.from > start) }.map(\.from).min()
-                let intervalEnd = practiceEnd.map { end in nextStart.map { min(end, cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: $0))!) } ?? end }
+                let intervalEnd = periods.first { $0.shiftID == periodID }?.end
                 let finished = paperwork[6].done || (student.hasStart && intervalEnd.map { cal.startOfDay(for: $0) < cal.startOfDay(for: today) } == true)
                 if periodCompany != nil && !annexII.done("archived") {
                     tasks.append(PendingTask(id: "\(student.id)-\(key)-8", title: name,

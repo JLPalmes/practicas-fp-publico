@@ -195,7 +195,10 @@ namespace PracticasFP {
             }
         }
         public static Calculation Calculate(object s,object db,DateTime? today=null) {
-            if(HasTwoPeriods(s))return CalculateGlobal(s,db,today);
+            return HasTwoPeriods(s)?CalculateGlobal(s,db,today):CalculateSchedule(s,db,today,true);
+        }
+
+        static Calculation CalculateSchedule(object s,object db,DateTime? today,bool useCompletions) {
             var r=new Calculation();
             double target=J.N(s,"targetHours",500),h=J.N(s,"hours");
             if(target<=0||target>10000||double.IsNaN(target)||double.IsInfinity(target)) {
@@ -224,6 +227,9 @@ namespace PracticasFP {
             double daily=h;
             double total=0;
             DateTime now=(today??J.Today).Date,manual=J.Date(s,"end"),d=start;
+            var placements=changes.Where(x=>J.S(x,"companyID")!="").ToArray();
+            var closures=new[]{PracticeCompletion(s)}.Concat(placements.Select(PracticeCompletion)).ToArray();
+            int periodIndex=0;
             for(int i=0;
             i<3660;
             i++,d=d.AddDays(1)) {
@@ -231,7 +237,9 @@ namespace PracticasFP {
                     daily=schedule[changeIndex].Item2;
                     changeIndex++;
                 }
-                if(d.DayOfWeek!=DayOfWeek.Saturday&&d.DayOfWeek!=DayOfWeek.Sunday&&!ranges.Any(x=>d>=x.Item1&&d<=x.Item2)) {
+                if(periodIndex<placements.Length&&J.Date(placements[periodIndex],"from")<=d)periodIndex++;
+                var closure=useCompletions?closures[periodIndex]:null;
+                if((!closure.HasValue||d<=closure.Value)&&d.DayOfWeek!=DayOfWeek.Saturday&&d.DayOfWeek!=DayOfWeek.Sunday&&!ranges.Any(x=>d>=x.Item1&&d<=x.Item2)) {
                     if(d<now)r.Elapsed=Math.Min(target,r.Elapsed+daily);
                     if(d<=manual)r.Manual+=daily;
                     if(total<target) {
@@ -242,7 +250,11 @@ namespace PracticasFP {
                         total+=daily;
                     }
                 }
-                if(r.End.HasValue&&(!J.B(s,"manualEnd")||d>=manual)&&d>=now)break;
+                if(periodIndex==placements.Length&&closure.HasValue&&d>=closure.Value) {
+                    r.End=closure;
+                    break;
+                }
+                if(r.End.HasValue&&(!useCompletions||!closures.Last().HasValue)&&(!J.B(s,"manualEnd")||d>=manual)&&d>=now)break;
             }
             if(!r.End.HasValue)r.Error="No se alcanzan las horas objetivo en diez años.";
             return r;
@@ -263,7 +275,7 @@ namespace PracticasFP {
                     e=e.HasValue&&e.Value<boundary?e:boundary;
                 }
                 result.Add(new Period {
-                    Owner=owner,Company=J.S(owner,"companyID"),Tutor=J.S(owner,"tutorID"),Start=J.Date(owner,i==0?"start":"from"),End=e
+                    Owner=owner,Company=J.S(owner,"companyID"),Tutor=J.S(owner,"tutorID"),Start=J.Date(owner,i==0?"start":"from"),End=PracticeCompletion(owner)??e
                 });
             }
             return result;

@@ -1,8 +1,9 @@
 {
   "productName": "Prácticas FP Tauri",
-  "version": "2.1.3",
+  "version": "2.1.5",
   "identifier": "es.practicasfp.windows",
   "build": { "frontendDist": "ui" },
-  "app": { "withGlobalTauri": true, "windows": [{ "title": "Prácticas FP Tauri · 2.1.3", "width": 1000, "height": 700 }] },
+  "app": { "withGlobalTauri": true, "windows": [{ "title": "Prácticas FP Tauri · 2.1.5", "width": 1000, "height": 700 }] },
+  "plugins": { "updater": { "pubkey": "", "requireSignedVersion": true } },
   "bundle": { "active": false, "icon": ["icon.ico"] }
 }

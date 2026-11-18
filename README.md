@@ -7,10 +7,12 @@ Los datos se guardan localmente, sin cuentas ni servicios en la nube.
 ## Descargar e instalar
 
 
-**Prácticas FP 2.1.3** está disponible para Windows y Mac.
+**Versiones estables disponibles**
+
+Mac 2.1.6 y Windows 2.1.3.
 
 - Windows x64, Windows 10 u 11 con Microsoft Edge WebView2. [Descargar instalador Windows](https://github.com/JLPalmes/practicas-fp-publico/releases/download/tauri-v2.1.3/Instalar-PracticasFP-Tauri-2.1.3-x64.exe)
-- Mac con Apple Silicon, macOS 14 o posterior. [Descargar instalador Mac (.dmg)](https://github.com/JLPalmes/practicas-fp-publico/releases/download/mac-v2.1.3-revision.2/PracticasFP-2.1.3-AppleSilicon-Campo-Grupo.dmg)
+- Mac con Apple Silicon, macOS 14 o posterior. [Descargar instalador Mac (.dmg)](https://github.com/JLPalmes/practicas-fp-publico/releases/download/mac-v2.1.6/PracticasFP-2.1.6-AppleSilicon.dmg)
 
 [Descargar la edición anterior 2.0.3 (WinForms)](https://github.com/JLPalmes/practicas-fp-publico/releases/tag/v2.0.3)
 
@@ -28,3 +30,5 @@ Copyright © 2026 Juan Luis (JLPalmes).
 Código, documentación y recursos propios bajo **GNU AGPL versión 3 exclusivamente**
 (`AGPL-3.0-only`). Consulta [LICENSE](LICENSE) y [el aviso](AVISO-LICENCIA.txt).
 Este programa se distribuye sin garantía.
+
+[Procedimiento de actualización y publicación](ACTUALIZACIONES.md).

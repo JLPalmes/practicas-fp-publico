@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Juan Luis (JLPalmes)
 import SwiftUI
+#if ACTUALIZACIONES
+import Sparkle
+#endif
 import AppKit
 typealias LocalState<Value> = SwiftUI.State<Value>
 
@@ -1010,9 +1013,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main struct PracticasApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = Store()
+#if ACTUALIZACIONES
+    private let updater = SPUStandardUpdaterController(
+        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil
+    )
+#endif
     var body: some Scene {
         WindowGroup("Prácticas FP") { RootView().environmentObject(store).environment(\.locale, Locale(identifier: "es_ES")) }
             .defaultSize(width: 1250, height: 850)
-            .commands { CommandGroup(replacing: .newItem) {} }
+            .commands {
+                CommandGroup(replacing: .newItem) {}
+#if ACTUALIZACIONES
+                CommandGroup(after: .appInfo) {
+                    Button("Buscar actualizaciones…") { updater.checkForUpdates(nil) }
+                }
+#endif
+            }
     }
 }

@@ -149,7 +149,12 @@ function render(index, data) {
       }
       for (const key of periodFields.filter(key => key !== "tutor")) node.querySelector("." + key).value = period[key];
       node.querySelector(".practice-start").checked = period.practice[0];
-      node.querySelector(".practice-end").checked = period.practice[1];
+      const completion = node.querySelector(".practice-end");
+      const completionField = node.querySelector(".practice-completion");
+      completion.checked = period.practice[1];
+      node.querySelector(".practice-end-date").value = period.practiceEndDate ?? "";
+      completionField.hidden = !completion.checked;
+      completion.onchange = () => { completionField.hidden = !completion.checked; };
       node.querySelector(".forecastEnd").textContent = period.forecastEnd;
       node.querySelector(".error").textContent = period.error;
       const shifts = node.querySelector(".shifts");
@@ -202,6 +207,7 @@ function readFields() {
       ...Object.fromEntries(periodFields.map(key => [key, node.querySelector("." + key).value])),
       annexEdits: annexEdits[index],
       practice: [node.querySelector(".practice-start").checked, node.querySelector(".practice-end").checked],
+      practiceEndDate: node.querySelector(".practice-end-date").value,
       shifts: Array.from(node.querySelectorAll(".shift"), row => ({
         id: row.dataset.id,
         from: row.querySelector(".from").value,
@@ -972,6 +978,7 @@ async function start() {
   byId("backups").disabled = false;
   byId("import-students").disabled = false;
   for (const button of lifecycleButtons) button.disabled = false;
+  void iniciarActualizaciones();
   if (await invoke("verificar_piloto")) {
     if (data.cards.length) throw Error("El primer arranque del piloto debe comenzar vacío.");
     const companyData = await invoke("ficha_accion", { action: "saveDirectory", kind: "companies", fields: {

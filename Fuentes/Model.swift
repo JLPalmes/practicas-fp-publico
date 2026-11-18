@@ -167,9 +167,14 @@ func calculate(_ s: Student, _ db: Database, today: Date = Date()) -> Calculatio
     }
     var result = Calculation(); var total = 0.0; var d = cal.startOfDay(for: s.start)
     let now = cal.startOfDay(for: today); let manual = cal.startOfDay(for: s.end)
+    let placements = changes.filter { $0.companyID != nil }
+    let closures = [s.practiceCompletion(nil)] + placements.map { s.practiceCompletion($0.id) }
+    var period = 0
     for _ in 0..<3660 {
+        if period < placements.count, cal.startOfDay(for: placements[period].from) <= d { period += 1 }
+        let closed = closures[period].map { d > $0 } ?? false
         let weekday = cal.component(.weekday, from: d)
-        let excluded = weekday == 1 || weekday == 7 || db.exclusions.contains {
+        let excluded = closed || weekday == 1 || weekday == 7 || db.exclusions.contains {
             d >= cal.startOfDay(for: $0.from) && d <= cal.startOfDay(for: $0.to)
         }
         if !excluded {
@@ -181,7 +186,11 @@ func calculate(_ s: Student, _ db: Database, today: Date = Date()) -> Calculatio
                 total += h
             }
         }
-        if result.end != nil && (!s.manualEnd || d >= manual) && d >= now { break }
+        if period == placements.count, let end = closures[period], d >= end {
+            result.end = end
+            break
+        }
+        if result.end != nil && closures[placements.count] == nil && (!s.manualEnd || d >= manual) && d >= now { break }
         d = cal.date(byAdding: .day, value: 1, to: d)!
     }
     if result.end == nil { result.error = "No se alcanzan las horas objetivo en los próximos diez años." }

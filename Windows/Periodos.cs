@@ -5,6 +5,11 @@ using System.Linq;
 
 namespace PracticasFP {
     public static partial class Model {
+        static DateTime? PracticeCompletion(object period) {
+            var step=Items(period,"paperwork").Skip(6).FirstOrDefault();
+            return J.B(step,"done")?(DateTime?)J.Date(step,"date"):null;
+        }
+
         public static bool HasTwoPeriods(object student) { return J.Get(student,"practicePeriods")!=null; }
 
         public static string PeriodAssignment(object student,object period) {
@@ -37,8 +42,11 @@ namespace PracticasFP {
         }
 
         public static DateTime? ForecastEnd(object student,Calculation calculation) {
-            if(!HasTwoPeriods(student)&&calculation.End.HasValue&&J.B(student,"manualEnd"))
-                return J.Date(student,"end");
+            if(!HasTwoPeriods(student)&&calculation.End.HasValue&&J.B(student,"manualEnd")) {
+                var last=Items(student,"shifts").Where(x=>J.S(x,"companyID")!="")
+                    .OrderBy(x=>J.Date(x,"from")).LastOrDefault();
+                return PracticeCompletion((object)last??student)??J.Date(student,"end");
+            }
             return calculation.End;
         }
 
@@ -69,7 +77,7 @@ namespace PracticasFP {
                 foreach(string key in new[]{"hours","companyID","tutorID","paperwork","documents"})
                     if(placement.ContainsKey(key))second[key]=placement[key];
                 first["manualEnd"]=true;
-                first["end"]=J.Stamp(boundary.AddDays(-1));
+                first["end"]=J.Stamp(PracticeCompletion(first)??boundary.AddDays(-1));
                 first["shifts"]=changes.Where(x=>J.S(x,"companyID")==""&&J.Date(x,"from")<boundary).Cast<object>().ToList();
                 second["shifts"]=changes.Where(x=>J.S(x,"companyID")==""&&J.Date(x,"from")>=boundary).Cast<object>().ToList();
                 double consumed=Calculate(first,db).Manual;
@@ -92,22 +100,33 @@ namespace PracticasFP {
             if(J.S(period,"companyID")==""||Find(db,"companies",J.S(period,"companyID"))==null)
                 return new Calculation {Error="Asigna una empresa al periodo."};
             if(!J.B(period,"hasStart"))return new Calculation();
+            var completion=PracticeCompletion(period);
+            if(completion.HasValue) {
+                var finished=J.Clone(period);
+                finished["end"]=J.Stamp(completion.Value);
+                finished["manualEnd"]=true;
+                return CalculateFixedPeriod(finished,db,today);
+            }
+            return CalculateFixedPeriod(period,db,today);
+        }
+
+        static Calculation CalculateFixedPeriod(object period,object db,DateTime? today) {
             if(J.B(period,"manualEnd")&&J.Date(period,"end")<J.Date(period,"start"))
                 return new Calculation {Error="El fin manual debe ser igual o posterior al inicio."};
             if(J.N(period,"targetHours")==0&&J.B(period,"manualEnd")) {
                 // A manual interval can exist even when the general target has already been met.
                 var manual=J.Clone(period);
                 manual["targetHours"]=0.01;
-                return CalculatePeriod(manual,db,today);
+                return CalculateFixedPeriod(manual,db,today);
             }
-            var calculation=Calculate(period,db,today);
+            var calculation=CalculateSchedule(period,db,today,false);
             if(calculation.Error!=null)return calculation;
             if(J.B(period,"manualEnd")) {
                 var until=J.Clone(period);
                 var yesterday=(today??J.Today).Date.AddDays(-1);
                 var end=J.Date(period,"end");
                 until["end"]=J.Stamp(yesterday<end?yesterday:end);
-                calculation.Elapsed=Calculate(until,db,today).Manual;
+                calculation.Elapsed=CalculateSchedule(until,db,today,false).Manual;
                 calculation.End=end;
             }
             return calculation;

@@ -86,6 +86,11 @@ struct DocumentFlow: Codable, Equatable, Identifiable {
     }
 }
 extension Student {
+    func practiceCompletion(_ periodID: UUID?) -> Date? {
+        guard let step = periodPaperwork(periodID).dropFirst(6).first, step.done else { return nil }
+        return cal.startOfDay(for: step.date)
+    }
+
     func periodPaperwork(_ periodID: UUID?) -> [Step] {
         guard let periodID else { return paperwork }
         return shifts.first { $0.id == periodID }?.paperwork ?? steps(studentPaperworkTitles)
@@ -132,8 +137,8 @@ struct PracticePeriod: Identifiable {
     var changes: [Shift]
 }
 extension Database {
-    func practicePeriods(for s: Student) -> [PracticePeriod] {
-        let calculation = calculate(s, self)
+    func practicePeriods(for s: Student, today: Date = Date()) -> [PracticePeriod] {
+        let calculation = calculate(s, self, today: today)
         let end = calculation.end.map { s.manualEnd ? s.end : $0 }
         let practices = s.shifts.filter { $0.companyID != nil }.sorted { $0.from < $1.from }
         var result: [PracticePeriod] = []
@@ -144,7 +149,7 @@ extension Database {
             let periodEnd = next.map { cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: $0))! }
             let finalEnd = periodEnd.map { boundary in end.map { min($0, boundary) } ?? boundary } ?? end
             let changes = s.shifts.filter { $0.companyID == nil && $0.from >= start && (next == nil || $0.from < next!) }.sorted { $0.from < $1.from }
-            result.append(PracticePeriod(id: shift?.id ?? s.id, companyID: shift?.companyID ?? s.companyID, tutorID: shift?.tutorID ?? (shift == nil ? s.tutorID : nil), from: s.hasStart ? start : nil, end: finalEnd, hours: shift == nil ? s.hours : shift?.hours, shiftID: shift?.id, changes: changes))
+            result.append(PracticePeriod(id: shift?.id ?? s.id, companyID: shift?.companyID ?? s.companyID, tutorID: shift?.tutorID ?? (shift == nil ? s.tutorID : nil), from: s.hasStart ? start : nil, end: s.practiceCompletion(shift?.id) ?? finalEnd, hours: shift == nil ? s.hours : shift?.hours, shiftID: shift?.id, changes: changes))
         }
         return result
     }

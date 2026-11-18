@@ -292,6 +292,13 @@ class Tests {
         Assert(Model.Decode(J.Json(db))["version"].ToString()=="5","Se guardan ambos periodos en el formato 5");
         second["start"]=J.Stamp(new DateTime(2026,11,4));
         Assert(Model.Calculate(student,db,new DateTime(2026,11,6)).Elapsed==14&&Model.Periods(student,db)[1].Result.Error!=null,"No se suman periodos solapados");
+        var completion=Model.Items(first,"paperwork").ElementAt(6);
+        completion["done"]=true;
+        completion["date"]=J.Stamp(new DateTime(2026,11,2));
+        second["start"]=J.Stamp(new DateTime(2026,11,5));
+        var afterGap=Model.Periods(student,db);
+        Assert(afterGap[0].End==new DateTime(2026,11,2)&&Model.Calculate(student,db,new DateTime(2026,11,6)).Elapsed==14,
+            "Práctica terminada fija el cierre y no suma jornadas entre periodos");
     }
     static void Entry(ZipArchive zip,string path,string text) {
         using(var w=new StreamWriter(zip.CreateEntry(path).Open()))w.Write(text);

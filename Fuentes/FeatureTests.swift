@@ -160,6 +160,12 @@ import PDFKit
         var completedInitial = periodDB
         completedInitial.students[0].paperwork[6].done = true
         completedInitial.students[0].paperwork[6].date = day("2027-01-25")
+        let closedStudent = completedInitial.students[0]
+        let gap = day("2027-01-31")
+        check(completedInitial.practicePeriods(for: closedStudent)[0].end == day("2027-01-25"), "El primer periodo muestra la fecha registrada de práctica terminada")
+        let withGap = calculate(closedStudent, completedInitial, today: gap)
+        let withoutGap = calculate(documentStudent, periodDB, today: gap)
+        check(abs(withoutGap.elapsed - withGap.elapsed - 16) < 0.001, "Las cuatro jornadas entre prácticas no suman horas")
         check(!completedInitial.monthlySchedule(for: nextCompany.id).isEmpty, "Cerrar la primera práctica no corta los contactos de la posterior")
         check(!completedInitial.students[0].latestPracticePaperwork[6].done, "Estado global refleja la última práctica, no la anterior cerrada")
         if let index = completedInitial.students[0].shifts.firstIndex(where: { $0.id == period.id }) {

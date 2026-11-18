@@ -1,0 +1,50 @@
+name: Preparar paquetes de actualización
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mac:
+    runs-on: macos-15
+    env:
+      PRACTICASFP_SPARKLE_PUBLIC_KEY: ${{ vars.PRACTICASFP_SPARKLE_PUBLIC_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar la aplicación
+        run: ./Validar.command
+      - name: Compilar para Apple Silicon
+        run: |
+          test -n "$PRACTICASFP_SPARKLE_PUBLIC_KEY"
+          curl --fail --silent --show-error --location https://github.com/sparkle-project/Sparkle/releases/download/2.10.1/Sparkle-2.10.1.tar.xz -o "$RUNNER_TEMP/sparkle.tar.xz"
+          echo "1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27  $RUNNER_TEMP/sparkle.tar.xz" | shasum -a 256 -c
+          mkdir -p "$RUNNER_TEMP/sparkle" dist/mac
+          tar -xf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
+          PRACTICASFP_SPARKLE_DIR="$RUNNER_TEMP/sparkle" ./Compilar.command
+          codesign --verify --deep --strict PracticasFP.app
+          version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' PracticasFP.app/Contents/Info.plist)
+          ditto -c -k --keepParent PracticasFP.app "dist/mac/PracticasFP-${version}-arm64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paquete-mac-pendiente-de-firma
+          path: dist/mac/*.zip
+          if-no-files-found: error
+  windows:
+    runs-on: windows-latest
+    env:
+      PRACTICASFP_TAURI_PUBLIC_KEY: ${{ vars.PRACTICASFP_TAURI_PUBLIC_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar y validar para Windows x64
+        shell: powershell
+        run: |
+          if (!$env:PRACTICASFP_TAURI_PUBLIC_KEY) { throw 'Falta la clave pública del actualizador.' }
+          node --test Pruebas/actualizaciones-windows.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./Windows/Compilar-Tauri.ps1 -Verificar
+          cargo test --locked --features distribucion --manifest-path Experimentos/Tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paquetes-windows-pendientes-de-firma
+          path: dist/Windows-Tauri/*.*
+          if-no-files-found: error

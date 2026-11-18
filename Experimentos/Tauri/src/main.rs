@@ -6,6 +6,11 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
+#[cfg(all(windows, target_arch = "x86_64"))]
+mod actualizaciones;
+#[cfg(all(windows, target_arch = "x86_64"))]
+use actualizaciones::*;
+
 struct Motor {
     child: Child,
     input: Option<ChildStdin>,
@@ -192,7 +197,12 @@ fn resultado(app: tauri::AppHandle, window: tauri::WebviewWindow, report: String
 }
 
 fn main() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    let builder = builder
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(Mutex::new(None::<tauri_plugin_updater::Update>));
+    builder
         .manage(Arc::new(Mutex::new(
             Motor::start().expect("Inicia el motor C# del prototipo"),
         )))
@@ -207,7 +217,13 @@ fn main() {
             verificar_reapertura,
             verificar_piloto,
             probar_cierre,
-            resultado
+            resultado,
+            #[cfg(all(windows, target_arch = "x86_64"))]
+            actualizaciones_disponibles,
+            #[cfg(all(windows, target_arch = "x86_64"))]
+            buscar_actualizacion,
+            #[cfg(all(windows, target_arch = "x86_64"))]
+            instalar_actualizacion
         ])
         .build(tauri::generate_context!())
         .expect("Inicia el prototipo Tauri")
