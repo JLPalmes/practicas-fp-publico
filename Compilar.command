@@ -4,7 +4,7 @@
 set -eu
 cd "$(dirname "$0")"
 # macOS releases can advance independently of Windows.
-version=${PRACTICASFP_MAC_VERSION:-2.1.10}
+version=${PRACTICASFP_MAC_VERSION:-2.1.11}
 [[ "$version" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || { echo "Versión de Mac no válida." >&2; exit 1; }
 mkdir -p .build PracticasFP.app/Contents/MacOS PracticasFP.app/Contents/Resources
 cp LICENSE PracticasFP.app/Contents/Resources/LICENSE

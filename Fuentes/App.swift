@@ -221,6 +221,7 @@ struct PanelDivider: View {
     }
 }
 struct RootView: View {
+    var showUpdate: (() -> Void)? = nil
     @EnvironmentObject var store: Store
     @StateObject private var navigation = WorkspaceNavigation()
     @AppStorage("PracticasFP.Width.Alumnas") private var studentPanelWidth = 380.0
@@ -273,6 +274,11 @@ struct RootView: View {
                 }
                 Button("Datos y copias") { page = "Ajustes y copias"; store.endEditingGroup() }
                     .accessibilityAddTraits(page == "Ajustes y copias" ? .isSelected : [])
+                if let showUpdate {
+                    Button("Nueva versión disponible", action: showUpdate)
+                        .buttonStyle(.link)
+                        .font(.caption)
+                }
                 Text(AppIdentity.versionLabel).font(.caption).foregroundStyle(.secondary)
             }.padding(10)
             Divider()
@@ -1006,22 +1012,55 @@ private struct NewExclusionView: View {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
+#if ACTUALIZACIONES
+private final class UpdateNotice: NSObject, ObservableObject, SPUStandardUserDriverDelegate {
+    @Published private(set) var available = false
+    private lazy var controller = SPUStandardUpdaterController(
+        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: self
+    )
+
+    func start() { _ = controller }
+    func check() { controller.checkForUpdates(nil) }
+
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    func standardUserDriverShouldHandleShowingScheduledUpdate(
+        _ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool
+    ) -> Bool { false }
+
+    func standardUserDriverWillHandleShowingUpdate(
+        _ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState
+    ) {
+        if !handleShowingUpdate { available = true }
+    }
+
+    func standardUserDriverWillFinishUpdateSession() { available = false }
+}
+#endif
+
 @main struct PracticasApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = Store()
 #if ACTUALIZACIONES
-    private let updater = SPUStandardUpdaterController(
-        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil
-    )
+    @StateObject private var updates = UpdateNotice()
 #endif
+    private var workspace: some View {
+#if ACTUALIZACIONES
+        RootView(showUpdate: updates.available ? updates.check : nil)
+            .onAppear { updates.start() }
+#else
+        RootView()
+#endif
+    }
+
     var body: some Scene {
-        WindowGroup("Prácticas FP") { RootView().environmentObject(store).environment(\.locale, Locale(identifier: "es_ES")) }
+        WindowGroup("Prácticas FP") { workspace.environmentObject(store).environment(\.locale, Locale(identifier: "es_ES")) }
             .defaultSize(width: 1250, height: 850)
             .commands {
                 CommandGroup(replacing: .newItem) {}
 #if ACTUALIZACIONES
                 CommandGroup(after: .appInfo) {
-                    Button("Buscar actualizaciones…") { updater.checkForUpdates(nil) }
+                    Button("Buscar actualizaciones…", action: updates.check)
                 }
 #endif
             }
