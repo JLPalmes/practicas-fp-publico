@@ -52,6 +52,33 @@ struct StudentDocuments: View {
         }
     }
 }
+private struct InitialDailyHoursField: View {
+    @Binding var hours: Double
+    @Environment(\.locale) private var locale
+    @FocusState private var editing: Bool
+    @LocalState private var draft = ""
+
+    private var style: FloatingPointFormatStyle<Double> { .number.locale(locale) }
+
+    var body: some View {
+        TextField("Horas diarias iniciales", text: $draft)
+            .focused($editing)
+            .onAppear { draft = hours.formatted(style) }
+            .onChange(of: draft) { _, value in
+                guard editing, let parsed = try? style.parseStrategy.parse(value),
+                      parsed.isFinite, parsed > 0, parsed <= 24 else { return }
+                hours = parsed
+            }
+            .onChange(of: hours) { _, value in
+                if !editing { draft = value.formatted(style) }
+            }
+            .onChange(of: editing) { _, focused in
+                if !focused { draft = hours.formatted(style) }
+            }
+            .onSubmit { editing = false }
+    }
+}
+
 struct PracticePeriodsEditor: View {
     @EnvironmentObject var store: Store
     @Binding var s: Student
@@ -108,6 +135,13 @@ struct PracticePeriodsEditor: View {
                     Checklist(items: $s.paperwork, only: [0,5,6])
                 }
                 assignmentControl(for: period)
+                if period.shiftID == nil {
+                    Toggle("Fecha de inicio establecida", isOn: $s.hasStart)
+                    if s.hasStart {
+                        DatePicker("Inicio del periodo", selection: $s.start, displayedComponents: .date)
+                    }
+                    InitialDailyHoursField(hours: $s.hours)
+                }
                 ForEach(period.changes) { change in
                     if let i = s.shifts.firstIndex(where: { $0.id == change.id }) {
                         VStack(alignment: .leading) {

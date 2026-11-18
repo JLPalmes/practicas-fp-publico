@@ -516,13 +516,8 @@ struct StudentEditor: View {
                         LabeledContent("Previstas hasta ayer", value: formattedHours(result.elapsed))
                         LabeledContent("Restantes del objetivo", value: formattedHours(s.remainingHours(after: result.elapsed)))
                     }
-                    Section("Horario y previsión") {
-                        TextField("Horas diarias iniciales", value: $s.hours, format: .number)
-                        Toggle("Fecha de inicio establecida", isOn: $s.hasStart)
-                        if s.hasStart {
-                            DatePicker("Inicio", selection: $s.start, displayedComponents: .date)
-                            calculation
-                        }
+                    if s.hasStart {
+                        Section("Horario y previsión") { calculation }
                     }
                 }.formStyle(.grouped)
             default:
