@@ -10,9 +10,9 @@ using System.Linq;
 using System.Collections.Generic;
 static class Installer {
 #if TAURI
-    const string Product="Prácticas FP Tauri";
+    const string Product="Prácticas FP";
     const string ProductId="PracticasFP-Tauri";
-    const string Version="2.1.5";
+    const string Version="2.1.9";
     const string DataFolder="PracticasFP-Tauri-Piloto";
     static readonly string[] Files={"PracticasFP.exe","motor.exe","Desinstalar.exe"};
 #else
@@ -99,7 +99,14 @@ static class Installer {
         var links=new[] {
             Path.Combine(Menu,Product+".lnk"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),Product+".lnk")
         };
-        var oldLinks=links.ToDictionary(x=>x,x=>File.Exists(x)?File.ReadAllBytes(x):null);
+        var legacyLinks=new string[0];
+#if TAURI
+        legacyLinks=new[] {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),"Prácticas FP Tauri","Prácticas FP Tauri.lnk"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"Prácticas FP Tauri.lnk")
+        };
+#endif
+        var oldLinks=links.Concat(legacyLinks).ToDictionary(x=>x,x=>File.Exists(x)?File.ReadAllBytes(x):null);
         var oldRegistry=new Dictionary<string,object>();
         var oldKinds=new Dictionary<string,RegistryValueKind>();
         bool hadRegistry;
@@ -117,6 +124,7 @@ static class Installer {
             }
             Directory.CreateDirectory(Menu);
             foreach(string link in links)Shortcut(link,app);
+            foreach(string link in legacyLinks)if(File.Exists(link))File.Delete(link);
             using(var k=Registry.CurrentUser.CreateSubKey(Key)) {
                 k.SetValue("DisplayName",Product+" para Windows");
                 k.SetValue("DisplayVersion",Version);

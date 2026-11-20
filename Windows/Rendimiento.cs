@@ -94,7 +94,8 @@ internal static class Rendimiento {
             "practice",new[]{5,6}.Select(i=>J.B(J.A(p.Owner,"paperwork")[i],"done")).ToArray(),
             "practiceEndDate",J.B(J.A(p.Owner,"paperwork")[6],"done")?IsoDate(J.Date(J.A(p.Owner,"paperwork")[6],"date")):"",
             "start",J.B(p.Owner,"hasStart")?IsoDate(p.Start):"",
-            "end",J.B(p.Owner,"manualEnd")?IsoDate(J.Date(p.Owner,"end")):"",
+            "end",J.B(J.A(p.Owner,"paperwork")[6],"done")?IsoDate(J.Date(J.A(p.Owner,"paperwork")[6],"date")):
+                J.B(p.Owner,"manualEnd")?IsoDate(J.Date(p.Owner,"end")):"",
             "forecastEnd",p.End.HasValue?IsoDate(p.End.Value):"",
             "error",p.Result.Error??"",
             "shifts",Model.Items(p.Owner,"shifts").OrderBy(s=>J.Date(s,"from")).Select(s=>J.Obj(
@@ -102,12 +103,12 @@ internal static class Rendimiento {
             "annexes",Annexes.Select(kind=>J.Obj("kind",kind,"steps",Model.Items(Model.Flow(p.Owner,kind),"milestones")
                 .Select(step=>J.Obj("id",J.S(step,"id"),"label",Model.StageTitle(J.S(step,"id")),
                     "checked",J.B(step,"completed"),"dated",J.Get(step,"date")!=null)).ToArray())).ToArray(),
-            "hours",J.N(p.Owner,"hours"),"target",J.N(p.Owner,"targetHours"))).ToArray();
+            "hours",J.N(p.Owner,"hours"),"target",p.Target)).ToArray();
         var result=J.Obj(
             "certificate",J.B(J.A(record,"paperwork")[0],"done"),
             "warnings",WorkspaceRules.StudentWarnings(store.Db,record).ToArray(),
             "secondActive",J.B(Model.Items(record,"practicePeriods").Last(),"active"),
-            "target",J.N(record,"targetHours"),"previous",J.N(record,"previousCourseHours"),"next",J.N(record,"nextCourseHours"),
+            "target",J.N(record,"targetHours",500),"previous",J.N(record,"previousCourseHours"),"next",J.N(record,"nextCourseHours"),
             "periods",periods,"elapsed",forecast.Elapsed,"remaining",Model.RemainingHours(record,forecast.Elapsed));
         foreach(string key in PersonalFields)result[key]=J.S(record,key);
         result["card"]=StudentCard(store.Db,record);
@@ -250,6 +251,7 @@ internal static class Rendimiento {
                     }
                 }
             }
+            foreach(var item in Model.Periods(record,store.Db))item.Owner["targetHours"]=item.Target;
         });
     }
 
@@ -448,6 +450,12 @@ internal static class Rendimiento {
     }
 
     static void VerifyCourseCopies(Store store) {
+        var example=Model.Items(store.Db,"students").First();
+        object original=J.Get(example,"targetHours");
+        example.Remove("targetHours");
+        if(J.N(ReadFicha(store,example),"target")!=500)
+            throw new InvalidOperationException("Las fichas anteriores deben mostrar 500 horas por defecto.");
+        if(original!=null)example["targetHours"]=original;
         string exported=Path.Combine(store.Folder,"exportada-prueba.json");
         string legacyPath=Path.Combine(store.Folder,"anterior-prueba.json");
         store.Export(exported);

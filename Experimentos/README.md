@@ -1,5 +1,85 @@
 # Rendimiento de Prácticas FP 2.0.3 en Windows
 
+## Fin previsto y autoguardado de Windows 2.1.9
+
+El autoguardado actualiza la fecha prevista y los errores del cálculo en la ficha
+abierta, además de las horas. Se elimina el botón Guardar ficha de Alumnas.
+Si falta una empresa o una fecha de inicio, el resultado explica qué falta.
+La prueba del paquete reabre un periodo cerrado, espera el autoguardado y compara
+la fecha visible con la respuesta del motor. Después vuelve a cerrarlo y verifica
+la persistencia tras reiniciar.
+
+La edición mantenida para Windows se denomina Prácticas FP. Desde 2.1.8 se
+elimina el distintivo Tauri de la ventana, el instalador, los accesos y los
+nombres de las descargas. Las rutas internas heredadas permiten actualizar las
+instalaciones existentes. La publicación automatizada compila la edición actual.
+Se superaron 84 comprobaciones de datos, 38 de WinForms, el recorrido completo
+de Alumnas y la verificación aislada del paquete y su actualización.
+
+## Autoguardado y objetivos de Windows 2.1.8
+
+Alumnas guarda tras una pausa de edición de 700 ms y al navegar. El guardado de
+fondo conserva los campos editables y evita mensajes rutinarios. Las ediciones
+incompletas conservan el borrador y muestran el error hasta que se corrige.
+
+El periodo tiene una sola fecha de cierre. Para copias anteriores con dos
+fechas, se muestra la de práctica terminada si estaba marcada y, en otro caso,
+el fin manual guardado. Las horas del periodo cerrado se cuentan hasta ese día,
+incluyéndolo, con las jornadas, fines de semana y exclusiones correspondientes.
+El siguiente periodo recibe el objetivo general menos las horas del curso
+anterior y las cumplidas en los periodos anteriores. El campo se calcula
+automáticamente, por lo que no se edita de forma independiente.
+
+Las pruebas de cálculo verificaron el reparto de 500 horas, con 10 horas previas
+y 7 cumplidas en el primer periodo, que deja 483 para el segundo. La prueba del
+paquete verificó que el autoguardado actualiza el motor sin un cambio de ficha,
+sin bloquear la entrada y sin avisos de guardado.
+
+## Navegación y guardado de Windows 2.1.7
+
+La inspección de una sesión instalada en 2.1.6 encontró la ventana y el motor
+activos con el aviso de cambios pendientes al pie de la ficha. Esta protección
+impedía cambiar de alumna y podía confundirse con un bloqueo.
+
+Alumnas guarda ahora sus cambios al abrir otra alumna o un panel, crear una
+ficha, importar o usar el historial. Las operaciones inválidas conservan el
+borrador y muestran el error en un aviso situado bajo la navegación principal.
+Los estados de guardado y los avisos de Empresas, Calendario y copias también
+aparecen allí.
+
+La prueba de 2.1.7 editó el objetivo y el estado de finalización, cambió de alumna
+por la lista y comprobó la persistencia de ambos. También intentó navegar con el
+objetivo vacío, verificó el error visible y pudo navegar tras corregirlo. Pasaron
+la reapertura del paquete, la reversión y la actualización aisladas. Estas
+pruebas cubren el impedimento de navegación observado en la sesión inspeccionada.
+
+## Correcciones de Windows 2.1.6
+
+Se incorporaron los avances de la rama principal hechos en Mac antes de corregir
+Windows. Las lecturas de ficha pasan al ejecutor de tareas de fondo, igual que los
+guardados y diálogos, para evitar esperar al motor desde el hilo de la ventana.
+Si el motor deja de responder durante 60 segundos se cierra el canal y se informa
+del error. El cierre de la aplicación tiene un límite de espera para el proceso C#.
+
+Las fechas visibles de fin previsto se presentan como día/mes/año. El primer
+periodo oculta esa previsión cuando está activo el segundo. El objetivo general
+recupera las 500 horas predeterminadas si la copia anterior omite el campo, y las
+horas restantes se actualizan mientras se edita el objetivo o las horas previas.
+El objetivo de cada periodo conserva su cálculo independiente.
+
+El actualizador incluye la clave pública configurada desde Mac. La firma del
+paquete y el catálogo de Windows están pendientes de la clave privada custodiada
+allí. El instalador inicial de 2.1.6 se entrega para instalación manual.
+
+Verificación de 2.1.6: pasaron las 82 comprobaciones de datos, las 38 de interfaz
+WinForms, las cuatro pruebas de la interfaz del actualizador y las dos pruebas
+Rust de versiones y arquitectura. La prueba del instalador ejercitó 12 lecturas
+simultáneas, la visualización de 500 horas en fichas sin el campo, el cambio y
+guardado del objetivo a 650, la actualización inmediata de horas restantes, las
+fechas en español y la visibilidad de la previsión según el segundo periodo.
+También verificó reapertura, reversión y actualización aisladas. El bloqueo
+intermitente comunicado no se reprodujo durante estas pruebas.
+
 Pruebas locales en Roquetes con 300 alumnas ficticias, dos periodos activos por alumna y una empresa. Cada operación se calentó cuatro veces y se midió 30 veces. Los resultados están en milisegundos.
 
 | Operación | WinForms con JSON, mediana / p95 | Variante, mediana / p95 |

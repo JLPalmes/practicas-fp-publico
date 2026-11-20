@@ -17,6 +17,7 @@
     <button id="backups" type="button" disabled>Datos y copias</button>
   </div>
 </header>
+<output id="global-status" role="status" aria-live="polite" hidden></output>
 <section id="students-panel" class="workspace">
 <aside class="record-list"><h2>Alumnas</h2>
   <label for="student-search">Buscar alumnas</label>
@@ -75,7 +76,6 @@
       <label id="second-toggle" class="period-toggle" hidden><input id="second-active" type="checkbox"> Realizar segundo periodo</label>
     </section>
     <div class="form-actions">
-    <button id="save" class="primary" disabled>Guardar ficha</button>
     <button id="discard" type="button" hidden>Descartar cambios</button>
     <button id="delete-student" type="button">Eliminar ficha…</button>
     <button id="student-report" type="button">Informe de la alumna</button>
@@ -197,9 +197,9 @@
     <option>Pendiente</option><option>Provisional</option><option>Definitiva</option>
   </select></dd>
   <dt><label>Inicio</label></dt><dd><input class="start" type="date"></dd>
-  <dt><label>Fin manual</label></dt><dd><input class="end" type="date"></dd>
+  <dt><label>Fecha de cierre</label></dt><dd><input class="end practice-end-date" type="date"></dd>
   <dt><label>Horas diarias</label></dt><dd><input class="hours" inputmode="decimal"></dd>
-  <dt><label>Objetivo</label></dt><dd><input class="target" inputmode="decimal"></dd>
+  <dt><label>Horas del periodo</label></dt><dd><input class="target" inputmode="decimal" readonly></dd>
   <dt>Fin previsto</dt><dd class="forecastEnd"></dd>
 </dl><p class="error" role="status"></p>
 <button type="button" class="open-company" hidden>Abrir empresa</button>
@@ -207,7 +207,6 @@
 <div>
   <label><input class="practice-start" type="checkbox"> Práctica iniciada</label>
   <label><input class="practice-end" type="checkbox"> Práctica terminada</label>
-  <label class="practice-completion" hidden>Fecha de cierre <input class="practice-end-date" type="date"></label>
 </div>
 <div class="shifts"></div>
 <button type="button" class="add-shift">Añadir cambio de jornada</button>

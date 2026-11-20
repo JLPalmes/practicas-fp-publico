@@ -209,7 +209,7 @@ byId("exclusion-delete").onclick = async () => {
 };
 calendarDiscard.onclick = () => { if (!calendarBusy) showCalendar(calendarData, exclusionId); };
 byId("calendar").onclick = async () => {
-  if (!canNavigate() || calendarBusy || !calendarDialog.hidden) return;
+  if (!await canNavigate() || calendarBusy || !calendarDialog.hidden) return;
   calendarBusy = true;
   try {
     showCalendar(await calendarRequest("calendar"));

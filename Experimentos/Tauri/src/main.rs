@@ -2,8 +2,9 @@
 
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::{Duration, Instant};
 use tauri::Manager;
 
 #[cfg(all(windows, target_arch = "x86_64"))]
@@ -14,7 +15,7 @@ use actualizaciones::*;
 struct Motor {
     child: Child,
     input: Option<ChildStdin>,
-    output: BufReader<ChildStdout>,
+    output: mpsc::Receiver<Result<Value, String>>,
     names: Value,
 }
 
@@ -50,27 +51,56 @@ impl Motor {
             .spawn()?;
         let input = child.stdin.take().expect("stdin");
         let output = BufReader::new(child.stdout.take().expect("stdout"));
+        let (sender, receiver) = mpsc::channel();
+        std::thread::spawn(move || {
+            for line in output.lines() {
+                let response = line.map_err(|error| error.to_string()).and_then(|line| {
+                    serde_json::from_str(&line).map_err(|error| error.to_string())
+                });
+                if sender.send(response).is_err() {
+                    break;
+                }
+            }
+        });
         let mut motor = Self {
             child,
             input: Some(input),
-            output,
+            output: receiver,
             names: Value::Null,
         };
-        motor.names = motor.read()?;
+        motor.names = motor.read(false)?;
         Ok(motor)
     }
 
-    fn read(&mut self) -> Result<Value, Box<dyn std::error::Error>> {
-        let mut line = String::new();
-        self.output.read_line(&mut line)?;
-        Ok(serde_json::from_str(&line)?)
+    fn read(&mut self, dialog: bool) -> Result<Value, Box<dyn std::error::Error>> {
+        let response = if dialog {
+            self.output.recv().map_err(|_| ())
+        } else {
+            self.output
+                .recv_timeout(Duration::from_secs(60))
+                .map_err(|_| ())
+        };
+        match response {
+            Ok(response) => response.map_err(Into::into),
+            Err(_) => {
+                drop(self.input.take());
+                let _ = self.child.kill();
+                Err("El motor no responde. Cierra y vuelve a abrir Prácticas FP.".into())
+            }
+        }
     }
 
     fn request(&mut self, command: Value) -> Result<Value, String> {
+        let dialog = matches!(
+            command["action"].as_str(),
+            Some(
+                "importStudents" | "exportCourse" | "selectRestore" | "saveReport" | "printReport"
+            )
+        );
         let input = self.input.as_mut().ok_or("El motor está cerrado")?;
         writeln!(input, "{command}").map_err(|e| e.to_string())?;
         input.flush().map_err(|e| e.to_string())?;
-        let response = self.read().map_err(|e| e.to_string())?;
+        let response = self.read(dialog).map_err(|e| e.to_string())?;
         if let Some(error) = response["error"].as_str() {
             return Err(error.to_owned());
         }
@@ -79,6 +109,13 @@ impl Motor {
 
     fn stop(&mut self) {
         drop(self.input.take());
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while matches!(self.child.try_wait(), Ok(None)) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(30));
+        }
+        if matches!(self.child.try_wait(), Ok(None)) {
+            let _ = self.child.kill();
+        }
         let _ = self.child.wait();
     }
 }
@@ -90,16 +127,26 @@ impl Drop for Motor {
 }
 
 #[tauri::command]
-fn alumnas(motor: tauri::State<Arc<Mutex<Motor>>>) -> Result<Value, String> {
-    Ok(motor.lock().map_err(|e| e.to_string())?.names.clone())
+async fn alumnas(motor: tauri::State<'_, Arc<Mutex<Motor>>>) -> Result<Value, String> {
+    let worker = Arc::clone(motor.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        Ok(worker.lock().map_err(|e| e.to_string())?.names.clone())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn ficha(index: usize, motor: tauri::State<Arc<Mutex<Motor>>>) -> Result<Value, String> {
-    motor
-        .lock()
-        .map_err(|e| e.to_string())?
-        .request(json!({"index":index}))
+async fn ficha(index: usize, motor: tauri::State<'_, Arc<Mutex<Motor>>>) -> Result<Value, String> {
+    let worker = Arc::clone(motor.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        worker
+            .lock()
+            .map_err(|e| e.to_string())?
+            .request(json!({"index":index}))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

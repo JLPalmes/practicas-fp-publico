@@ -279,6 +279,8 @@ class Tests {
         J.EditArray(first,"shifts").Add(J.Obj("id",J.Id(),"from",J.Stamp(new DateTime(2026,11,3)),"hours",3.5));
         Assert(Model.CalculatePeriod(first,db).End==new DateTime(2026,11,4),"El cambio de jornada afecta solo a su periodo");
         second["active"]=true;
+        first["manualEnd"]=true;
+        first["end"]=J.Stamp(new DateTime(2026,11,4));
         second["hasStart"]=true;
         second["start"]=J.Stamp(new DateTime(2026,11,5));
         second["targetHours"]=7.0;
@@ -299,6 +301,12 @@ class Tests {
         var afterGap=Model.Periods(student,db);
         Assert(afterGap[0].End==new DateTime(2026,11,2)&&Model.Calculate(student,db,new DateTime(2026,11,6)).Elapsed==14,
             "Práctica terminada fija el cierre y no suma jornadas entre periodos");
+        Assert(afterGap[0].Target==7&&afterGap[1].Target==23,
+            "El primer objetivo refleja las horas al cierre y el segundo recibe el saldo general menos horas previas");
+        student["targetHours"]=500.0;
+        var adjusted=Model.Periods(student,db);
+        Assert(adjusted[0].Target==7&&adjusted[1].Target==483,
+            "Cambiar el objetivo general conserva las horas cerradas y recalcula el segundo periodo");
     }
     static void Entry(ZipArchive zip,string path,string text) {
         using(var w=new StreamWriter(zip.CreateEntry(path).Open()))w.Write(text);

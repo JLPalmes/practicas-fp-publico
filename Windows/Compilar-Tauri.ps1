@@ -16,10 +16,10 @@ $cargoOutput = Join-Path $tauri 'target'
 cargo build --release --locked --features distribucion --target $target --target-dir $cargoOutput --manifest-path (Join-Path $tauri 'Cargo.toml')
 if ($LASTEXITCODE -ne 0) { throw 'No se pudo compilar Tauri.' }
 $app = Join-Path $cargoOutput "$target\release\practicas-fp-prototipo.exe"
-$installer = Join-Path $output "Instalar-PracticasFP-Tauri-$version-x64.exe"
+$installer = Join-Path $output "Instalar-PracticasFP-$version-x64.exe"
 $license = Join-Path $root 'LICENSE'
 $notice = Join-Path $output 'AVISO-LICENCIA.txt'
-$sourceName = "Fuentes-PracticasFP-Tauri-$version.zip"
+$sourceName = "Fuentes-PracticasFP-$version.zip"
 $noticeText = [IO.File]::ReadAllText((Join-Path $root 'AVISO-LICENCIA.txt')).Replace(
     'https://github.com/JLPalmes/practicas-fp-publico','Fuentes adjuntas: ' + $sourceName)
 [IO.File]::WriteAllText($notice,$noticeText)
@@ -30,7 +30,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo compilar el instalador.' }
 } finally { if (Test-Path -LiteralPath $motor) { Remove-Item -LiteralPath $motor } }
 if ([Diagnostics.FileVersionInfo]::GetVersionInfo($installer).ProductVersion -ne $version) { throw 'La version del instalador no coincide.' }
-$sourceFiles = @('LICENSE','AVISO-LICENCIA.txt','Experimentos/README.md',
+$sourceFiles = @('LICENSE','AVISO-LICENCIA.txt','Experimentos/README.md','ACTUALIZACIONES.md','Experimentos/Tauri/updater-public-key.txt',
     'Experimentos/Tauri/Cargo.toml','Experimentos/Tauri/Cargo.lock','Experimentos/Tauri/build.rs','Experimentos/Tauri/tauri.conf.json')
 foreach ($folder in @('Windows','Experimentos/Tauri/src','Experimentos/Tauri/ui','Experimentos/Tauri/capabilities')) {
     $sourceFiles += Get-ChildItem -File -LiteralPath (Join-Path $root $folder) |

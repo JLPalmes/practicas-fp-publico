@@ -1,109 +1,47 @@
 # Prácticas FP para Windows
 
-Versión **2.0.3** para Windows.
+Versión **2.1.9**, para Windows 10 u 11 de 64 bits, con Microsoft Edge WebView2 y
+.NET Framework 4.8 recomendado.
 
-## Instalar y probar
+## Instalar
 
-1. Ejecuta `dist\Windows\Instalar-PracticasFP-2.0.3-x64.exe`.
-2. Pulsa **Instalar**. No requiere permisos de administrador y no abre la aplicación automáticamente.
-3. Abre **Prácticas FP** desde el escritorio o el menú Inicio.
-4. Prueba primero con fichas ficticias. Para usar una copia de Mac, ve a **Ajustes y copias → Restaurar copia de Windows o Mac…**. Antes de sustituir datos se muestra un resumen y se conserva una copia previa.
+Ejecuta Instalar-PracticasFP-2.1.9-x64.exe y pulsa Instalar. La aplicación se abre
+desde Prácticas FP en el escritorio o el menú Inicio. Se instala para tu usuario
+y conserva los datos al actualizar.
 
-Destinada a Windows 10/11 de **64 bits**, con .NET Framework (4.8 recomendado). No necesita Excel, Node ni el SDK de .NET. Esta edición no lleva certificado de firma digital.
+## Fichas y periodos
 
-## Funciones
+La navegación abre los paneles Alumnas, Empresas, Tutores y Calendario.
+Alumnas guarda automáticamente tras una pausa de edición y al navegar.
+Los errores conservan el borrador y aparecen en el aviso superior. Deshacer
+y Rehacer actúan durante la sesión.
 
-- Alumnas, empresas y tutores; búsquedas y filtros; navegación entre fichas.
-- Cupos, asignación provisional/definitiva y comprobación de plazas.
-- Objetivo de horas, jornadas y cambios por fecha; prácticas en varias empresas, cada una con sus documentos.
-- Calendario local del curso, exclusiones inclusivas y días del instituto.
-- Casillas de completado en anexos y conciertos, con coherencia entre envíos y recepciones.
-- Seguimiento mensual agrupado por empresa.
-- Importación CSV y Excel .xlsx con elección de hoja y fila de cabecera, correspondencia de columnas y selección previa. Protege los ceros iniciales; omite duplicados y señala fórmulas y números largos para revisión. Límite: 20 MB, 10.000 filas y 256 columnas.
-- Guardado automático **al salir de cada campo**; Deshacer/Rehacer de hasta 50 cambios en la sesión. El historial almacena las diferencias de cada operación, sin duplicar los cursos archivados en cada edición. Se limita a unos 16 MB, conservando al menos la última operación aunque por sí sola supere ese tamaño.
-- Copias automáticas al abrir datos existentes, antes de importar y restaurar, con exportación manual verificada.
-- Informes de alumna, empresa o curso en texto y mediante impresión paginada A4. En el diálogo de impresión selecciona **Microsoft Print to PDF** para guardar un PDF.
+Cada periodo tiene su empresa, tutor, jornada, cambios de jornada, documentación
+y fecha de cierre. Al cerrar un periodo se cuentan las horas cumplidas hasta
+ese día incluido. El siguiente recibe el saldo del objetivo general,
+descontando las horas de cursos anteriores y de los periodos ya cerrados.
 
-## Datos y compatibilidad
+Calendario muestra los festivos e intervalos excluidos en una cuadrícula
+mensual. Informes ofrece la alumna, la empresa o el curso completo, con
+exportación de texto e impresión. El diálogo de impresión permite elegir
+Microsoft Print to PDF.
 
-- Datos: `%LOCALAPPDATA%\PracticasFP2\Datos\datos.json`.
-- Copias: `%LOCALAPPDATA%\PracticasFP2\Datos\Copias`.
-- Aplicación: `%LOCALAPPDATA%\Programs\PracticasFP2`.
+## Datos y copias
 
-El instalador y los accesos directos de Prácticas FP 2 son independientes de la edición 1.8.5. Para probar datos anteriores, exporta una copia desde esa edición y restáurala en la nueva. Cada ficha antigua ofrece **Convertir ficha a dos periodos** y guarda una copia previa. Las fichas con más de dos periodos requieren revisión. El formato 5 de las fichas convertidas se abre con la versión 2.
+Datos y copias permite exportar y restaurar copias JSON de Mac o Windows,
+con una copia previa al reemplazo. La importación CSV, TSV o Excel permite
+revisar la hoja y las columnas antes de añadir alumnas.
 
-Cada alumna tiene un primer periodo y un segundo opcional. Cada periodo activo requiere empresa para calcular su previsión y confirmar la asignación. Tiene su propio objetivo, jornada, fechas, cambios de jornada y documentos. El registro global muestra el objetivo general, las horas del curso anterior, la previsión del curso y las horas que se anotan para el siguiente curso. El cálculo descuenta del objetivo general las horas del curso anterior y la previsión acumulada hasta ayer.
+Los datos permanecen en %LOCALAPPDATA%\PracticasFP-Tauri-Piloto\datos.json
+y las copias en la subcarpeta Copias. Esta ruta heredada permite recuperar
+las instalaciones anteriores. Se admite una sola instancia por almacén.
+Para cambiar de equipo, exporta una copia y restáurala en el otro.
 
-Los datos y copias no se suben a servicios externos. Para trasladarlos entre equipos, exporta una copia y restáurala en el otro. No hay sincronización simultánea ni fusión de cambios. Una segunda instancia no puede abrir la misma carpeta de datos. Un archivo ilegible bloquea las modificaciones para proteger el original.
+## Compilar y actualizar
 
-Desinstala desde **Configuración → Aplicaciones**. Se conservan datos y copias. Por ser un instalador mínimo, queda el archivo `Desinstalar.exe` en la carpeta de la aplicación; puedes eliminarlo después de cerrar la desinstalación.
+Windows/Compilar-Tauri.ps1 -Verificar genera el instalador y sus fuentes en
+dist/Windows-Tauri y comprueba el paquete en una carpeta temporal.
 
-## Mejoras de la segunda edición de Windows
-
-- Fichas con apartados plegables y una cabecera que mantiene visible el nombre y el estado de asignación.
-- Al marcar hitos se actualiza el apartado documental afectado. Las otras actualizaciones de ficha conservan el desplazamiento y recuperan el foco cuando sigue disponible el mismo control.
-- Cada ficha conserva su posición durante la sesión. Las búsquedas, filtros y selecciones se mantienen al cambiar de sección. Las anchuras por sección y el estado de los apartados plegables se recuerdan también al reiniciar, en `vista-windows.json`, separado del archivo de datos.
-- Los campos se adaptan al ancho disponible. Las consultas de documentos, periodos e informes ya no crean datos al mostrarlos.
-- Se reutilizan cálculos de previsión, periodos, contactos y ocupación mientras no cambien los datos ni el día de Canarias. Las fechas de cambios y exclusiones se preparan una sola vez por cálculo.
-- El código separa almacenamiento, historial, pantallas, controles documentales e informes. Se conserva el formato de datos 4 y las tecnologías C# / Windows Forms / .NET Framework.
-
-Los filtros todavía no muestran contadores. Deshacer registra cada campo al abandonarlo, en lugar de agrupar pulsaciones por tiempo. El PDF se produce mediante el controlador de impresión de Windows, sin los metadatos lingüísticos del exportador de Mac.
-
-## Actualizar y recuperar una versión
-
-Cierra Prácticas FP antes de ejecutar el instalador nuevo. Se verifican los dos ejecutables antes de sustituirlos. Si falla la actualización, se intenta recuperar ambos archivos y deshacer los cambios en accesos directos y registro de la aplicación. Si la recuperación tampoco puede completarse, el mensaje indica dónde se conservan los respaldos; no los elimines.
-
-Una actualización de Prácticas FP 2 conserva sus ejecutables anteriores en `%LOCALAPPDATA%\Programs\PracticasFP2\VersionAnterior`. La edición 1.8.5 se abre desde su propio acceso directo y usa su carpeta de datos original.
-
-Si se interrumpe el reemplazo de archivos, el siguiente intento de instalación recupera esos archivos antes de volver a actualizar. Los datos de alumnas, empresas y copias quedan fuera de la carpeta de instalación y no se modifican. La recuperación se ha probado con archivos ficticios y fallos simulados; el instalador real no se ha ejecutado en esta revisión.
-
-El intercambio completo de copias con Mac queda fuera del alcance de esta mejora. Se conserva la lectura de los formatos anteriores, sin prometer una verificación de ida y vuelta con Mac.
-
-## Compilar y validar
-
-Desde PowerShell en la raíz del repositorio:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File Windows\Compilar.ps1
-```
-
-Usa el compilador de .NET Framework incluido en Windows. Compila la aplicación, ejecuta las pruebas con datos ficticios temporales y, solo si pasan, genera el instalador con la aplicación recién compilada como recurso. No ejecuta el instalador ni instala la aplicación.
-
-Los instaladores se nombran `Instalar-PracticasFP-<versión>-x64.exe`. La versión se obtiene automáticamente de la aplicación recién compilada y se comprueba que coincida con la del instalador. Así, cada versión conserva un nombre distinto al descargarla o compartirla.
-
-Resultados en `dist\Windows\`. `Pruebas.exe` ejecuta 73 comprobaciones del cálculo, datos, migraciones, documentos, copias, importación, contactos, consultas sin efectos secundarios, historial incremental, reutilización de cálculos y recuperación de actualizaciones. La interfaz se comprobó abriendo la aplicación compilada con una carpeta de datos ficticios independiente mediante `--data-directory`.
-
-## Mejoras 1.8.4-windows.5
-
-Las fichas reutilizan los campos de texto que comparten. Los anexos, el concierto y varios apartados de datos se cargan al abrirlos si estaban plegados.
-
-## Mejoras 1.8.4-windows.4
-
-Se agrupan los ajustes de diseño al abrir una ficha y al marcar hitos para reducir el trabajo de redibujado.
-
-## Mejoras 1.8.4-windows.3
-
-Alumnas, Empresas y Tutores mantienen siempre el listado y la ficha. Al entrar
-se recupera la selección de esa sección durante la sesión o se abre la primera
-ficha disponible. Al borrar la seleccionada se abre otra; si no quedan fichas,
-la columna derecha permite añadir. La búsqueda conserva la ficha abierta.
-
-La lista de tutores muestra el nombre, debajo su empresa y después las alumnas
-asignadas, incluidas las de periodos posteriores, sin repeticiones. Permite
-buscar por tutor, empresa o alumna. Su ficha incluye enlaces a esas alumnas.
-
-Se reducen los márgenes y anchos mínimos. Las columnas del listado se ajustan
-al espacio disponible y los hitos documentales se distribuyen en filas
-numeradas sin desplazamiento horizontal. Toda la cabecera de los apartados es
-pulsable, con un mínimo de 32 puntos y altura adaptable a títulos largos.
-Informe permite elegir la ficha seleccionada o el curso completo.
-
-Además de las 73 comprobaciones funcionales, la compilación ejecuta pruebas
-sobre formularios reales con datos ficticios: selección inicial y conservada,
-listados vacíos, borrado, alta, búsqueda de tutores, plegado, hitos y ausencia
-de barra horizontal en fichas estrechas. Genera vistas previas de Windows para
-revisión. Sigue pendiente la comprobación manual en el equipo del usuario.
-
-La publicación de una actualización exclusiva de Windows reutiliza el instalador
-Mac existente únicamente si las fuentes de Mac y su procedimiento de compilación
-permanecen idénticos a los de aquella versión y se verifica su suma SHA-256.
+El actualizador utiliza la clave pública de Windows del proyecto. Para activar
+una actualización hay que firmar el paquete y publicar el catálogo según
+ACTUALIZACIONES.md.

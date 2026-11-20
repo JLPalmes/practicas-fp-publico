@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compilar y probar
         shell: powershell
-        run: ./Windows/Compilar.ps1
+        run: ./Windows/Compilar-Tauri.ps1 -Verificar
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -23,8 +23,9 @@ jobs:
         with:
           name: instalador-windows
           path: |
-            dist/Windows/Instalar-*.exe
-            dist/Windows/Windows-*.png
+            dist/Windows-Tauri/Instalar-*.exe
+            dist/Windows-Tauri/Fuentes-*.zip
+            dist/Windows-Tauri/AVISO-LICENCIA.txt
   publicar:
     if: startsWith(github.ref, 'refs/tags/')
     needs: windows
@@ -46,6 +47,7 @@ jobs:
           version=${version%%-publica.*}
 
           test -f "distribucion/Instalar-PracticasFP-$version-x64.exe"
-          cp LICENSE AVISO-LICENCIA.txt distribucion/
-          (cd distribucion && sha256sum *.exe LICENSE AVISO-LICENCIA.txt > SHA256SUMS.txt)
+          cp LICENSE distribucion/
+          test -f distribucion/AVISO-LICENCIA.txt
+          (cd distribucion && sha256sum *.exe *.zip LICENSE AVISO-LICENCIA.txt > SHA256SUMS.txt)
           gh release create "$GITHUB_REF_NAME" distribucion/* --verify-tag --latest --title "Prácticas FP $version" --notes-file NOTAS-PUBLICACION.md

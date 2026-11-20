@@ -55,7 +55,7 @@ test("avisa sin bloquear y permite posponer la versión", async () => {
   assert.equal(elemento("actualizacion").open, false);
   await elemento("buscar-actualizaciones").onclick();
   assert.equal(elemento("actualizacion-titulo").textContent, "Prácticas FP 2.1.5");
-  assert.equal(elemento("actualizacion-fecha").textContent, version.fecha);
+  assert.equal(elemento("actualizacion-fecha").textContent, version.fecha.split("-").reverse().join("/"));
   assert.equal(elemento("actualizacion-notas").textContent, version.notas);
   elemento("actualizacion-cerrar").onclick();
   assert.equal(elemento("actualizacion").open, false);

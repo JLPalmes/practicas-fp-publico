@@ -111,6 +111,7 @@ namespace PracticasFP {
         public string Error;
     }
     public class Period {
+        public double Target;
         public Dictionary<string,object> Owner;
         public Calculation Result;
         public string Company,Tutor;
@@ -657,7 +658,7 @@ namespace PracticasFP {
                 foreach(var p in Periods(s,db)) {
                     number++;
                     if(twoPeriods) {
-                        b.AppendLine((number==1?"Primer periodo":"Segundo periodo")+" · Objetivo: "+J.N(p.Owner,"targetHours")+" h · Previstas: "+p.Result.Elapsed+" h");
+                        b.AppendLine((number==1?"Primer periodo":"Segundo periodo")+" · Horas del periodo: "+p.Target+" h · Previstas: "+p.Result.Elapsed+" h");
                         b.AppendLine("Jornada inicial: "+J.N(p.Owner,"hours")+" h/día");
                         foreach(var change in Items(p.Owner,"shifts").OrderBy(x=>J.Date(x,"from")))b.AppendLine("Cambio "+J.Text(J.Date(change,"from"))+": "+J.S(change,"hours")+" h/día");
                         if(p.Result.Error!=null)b.AppendLine(p.Result.Error);

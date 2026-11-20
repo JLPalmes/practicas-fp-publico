@@ -6,6 +6,13 @@ La primera versión que incorpore el actualizador se instala manualmente desde e
 DMG o EXE. A partir de ella, la aplicación comprueba el catálogo estable y permite
 buscar actualizaciones desde su menú. La persona usuaria decide cuándo instalar.
 
+Windows 2.1.6 incorpora la clave pública existente en
+`Experimentos/Tauri/updater-public-key.txt`. La variable de compilación puede
+sobrescribirla para pruebas. La clave privada sigue custodiada en el Mac. El
+instalador generado en Windows debe firmarse allí antes de publicar el catálogo
+`actualizaciones-windows/latest.json`. La aplicación detiene el proceso C# antes
+de abrir el instalador para liberar sus ejecutables.
+
 ## Preparar una versión
 
 1. Incrementa la versión estable `mayor.menor.parche` de la plataforma que cambia.
@@ -68,7 +75,7 @@ Usa la clave pública al compilar. Para firmar, facilita la ruta privada con
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, desde el gestor de secretos de tu equipo.
 
 ```powershell
-npx @tauri-apps/cli@2.12.5 signer sign --app-version VERSION Instalar-PracticasFP-Tauri-VERSION-x64.exe
+npx @tauri-apps/cli@2.12.5 signer sign --app-version VERSION Instalar-PracticasFP-VERSION-x64.exe
 ```
 
 La firma vincula los bytes y la versión. Publica el EXE, su firma y las fuentes
@@ -78,12 +85,12 @@ del `.sig` en el campo `signature`.
 
 ```json
 {
-  "version": "2.1.4",
+  "version": "2.1.8",
   "pub_date": "2026-11-18T12:00:00Z",
   "notes": "Novedades de la versión.",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/JLPalmes/practicas-fp-publico/releases/download/tauri-v2.1.4/Instalar-PracticasFP-Tauri-2.1.4-x64.exe",
+      "url": "https://github.com/JLPalmes/practicas-fp-publico/releases/download/v2.1.8/Instalar-PracticasFP-2.1.8-x64.exe",
       "signature": "CONTENIDO_DEL_ARCHIVO_SIG"
     }
   }

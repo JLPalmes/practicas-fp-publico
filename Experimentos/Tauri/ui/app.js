@@ -40,16 +40,27 @@ function navigateWorkspace(section) {
   }
 }
 
-function canNavigate() {
+async function canNavigate() {
   return !saving && !measuring && (directory.hidden || canLeaveDirectory()) &&
-    (calendarDialog.hidden || calendarCanLeave()) && canLeaveFicha();
+    (calendarDialog.hidden || calendarCanLeave()) && await savePendingFicha();
 }
-byId("students").onclick = () => { if (canNavigate()) navigateWorkspace("students"); };
+byId("students").onclick = async () => { if (await canNavigate()) navigateWorkspace("students"); };
 const search = byId("student-search");
 const measure = byId("measure");
 const result = byId("result");
-const save = byId("save");
+const save = { disabled: true };
 const saveStatus = byId("save-status");
+const globalStatus = byId("global-status");
+const statusObserver = new MutationObserver(records => {
+  const target = records.at(-1).target;
+  const message = (target.nodeType === Node.ELEMENT_NODE ? target : target.parentElement)?.closest("output");
+  if (!message) return;
+  globalStatus.textContent = message.textContent;
+  globalStatus.hidden = !message.textContent;
+});
+for (const id of ["save-status", "directory-status", "calendar-status", "backup-status", "import-status"]) {
+  statusObserver.observe(byId(id), { childList: true, characterData: true, subtree: true });
+}
 const discard = byId("discard");
 const personalFields = ["name", "group", "dni", "nuss", "phone", "email", "preferredType", "preferredZone",
   "preferences", "notes"];
@@ -57,6 +68,7 @@ const personalInput = key => byId(key === "name" ? "student-name" : key);
 const form = byId("ficha");
 const lifecycleButtons = ["create", "undo", "redo"].map(byId);
 const globalFields = ["target", "previous", "next"];
+const spanishDate = date => /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split("-").reverse().join("/") : date;
 const periodFields = ["company", "tutor", "assignment", "start", "end", "hours", "target"];
 let companies;
 let tutors;
@@ -107,7 +119,32 @@ const secondActive = byId("second-active");
 
 secondActive.onchange = () => {
   sections[1].hidden = !secondActive.checked;
+  updateForecastVisibility();
 };
+
+function updateForecastVisibility() {
+  const forecast = sections[0].querySelector(".forecastEnd");
+  forecast.hidden = secondActive.checked;
+  forecast.previousElementSibling.hidden = secondActive.checked;
+}
+
+function showForecast(node, period) {
+  node.querySelector(".forecastEnd").textContent = period.forecastEnd ? spanishDate(period.forecastEnd) :
+    !period.company ? "Asigna una empresa" : !period.start ? "Indica la fecha de inicio" :
+      period.error ? "Revisa los datos del periodo" : period.target === 0 ? "Objetivo cumplido" : "Sin calcular";
+  node.querySelector(".error").textContent = period.error;
+}
+
+function previewGlobalHours() {
+  if (!savedRecord) return;
+  const number = key => Number(byId(key).value.trim().replace(",", "."));
+  if (byId("target").value.trim() && byId("previous").value.trim() &&
+      Number.isFinite(number("target")) && Number.isFinite(number("previous"))) {
+    byId("remaining").textContent = Math.max(0, number("target") - number("previous") - savedRecord.elapsed);
+  }
+}
+byId("target").addEventListener("input", previewGlobalHours);
+byId("previous").addEventListener("input", previewGlobalHours);
 
 function render(index, data) {
   currentIndex = index;
@@ -150,13 +187,11 @@ function render(index, data) {
       for (const key of periodFields.filter(key => key !== "tutor")) node.querySelector("." + key).value = period[key];
       node.querySelector(".practice-start").checked = period.practice[0];
       const completion = node.querySelector(".practice-end");
-      const completionField = node.querySelector(".practice-completion");
       completion.checked = period.practice[1];
-      node.querySelector(".practice-end-date").value = period.practiceEndDate ?? "";
-      completionField.hidden = !completion.checked;
-      completion.onchange = () => { completionField.hidden = !completion.checked; };
-      node.querySelector(".forecastEnd").textContent = period.forecastEnd;
-      node.querySelector(".error").textContent = period.error;
+      completion.onchange = () => {
+        if (completion.checked && !node.querySelector(".end").value) node.querySelector(".end").value = courseToday;
+      };
+      showForecast(node, period);
       const shifts = node.querySelector(".shifts");
       shifts.replaceChildren();
       for (const shift of period.shifts) addShift(shifts, shift);
@@ -176,6 +211,7 @@ function render(index, data) {
       }
     }
   });
+  updateForecastVisibility();
   selected?.removeAttribute("aria-current");
   selected = list.children[index];
   updateCard(selected, data.card);
@@ -237,7 +273,7 @@ discard.onclick = () => {
 function lockFields(locked) {
   for (const input of form.querySelectorAll("input")) {
     if (input.type === "checkbox") input.disabled = locked;
-    else input.readOnly = locked;
+    else input.readOnly = locked || input.classList.contains("target");
   }
   for (const select of form.querySelectorAll("select")) select.disabled = locked;
   for (const textarea of form.querySelectorAll("textarea")) textarea.readOnly = locked;
@@ -248,6 +284,69 @@ async function saveFicha(index, fields) {
   const data = await invoke("guardar", { index, fields });
   render(index, data);
   return data;
+}
+
+let pendingSave;
+let autoSaveEnabled = false;
+let autoSaveTimer;
+function scheduleAutoSave() {
+  if (!autoSaveEnabled) return;
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(async () => {
+    if (saving || measuring || directoryBusy || calendarBusy || backupBusy || reportBusy) return;
+    await savePendingFicha(true);
+  }, 700);
+}
+form.addEventListener("input", scheduleAutoSave);
+form.addEventListener("focusout", scheduleAutoSave);
+form.addEventListener("change", scheduleAutoSave);
+form.addEventListener("click", event => {
+  if (event.target.closest(".add-shift, .remove-shift")) scheduleAutoSave();
+});
+
+async function savePendingFicha(background = false) {
+  if (pendingSave) return pendingSave;
+  if (saving || measuring) return false;
+  if (!hasPendingChanges() || currentIndex === undefined) return true;
+  pendingSave = (async () => {
+    saving = true;
+    save.disabled = true;
+    if (!background) lockFields(true);
+    const fields = JSON.parse(JSON.stringify(readFields()));
+    const snapshot = JSON.stringify(fields);
+    saveStatus.textContent = "";
+    try {
+      if (background) {
+        const data = await invoke("guardar", { index: currentIndex, fields });
+        savedRecord = data;
+        savedFields = snapshot;
+        byId("elapsed").textContent = data.elapsed;
+        byId("remaining").textContent = data.remaining;
+        for (const [index, period] of data.periods.entries()) {
+          sections[index].querySelector(".target").value = period.target;
+          showForecast(sections[index], period);
+        }
+        // Derived targets are display-only and do not create a new user edit.
+        const accepted = { ...fields, periods: fields.periods.map((period, index) =>
+          ({ ...period, target: String(data.periods[index].target) })) };
+        savedFields = JSON.stringify(accepted);
+        updateCard(list.children[currentIndex], data.card);
+        if (hasPendingChanges()) scheduleAutoSave();
+      } else await saveFicha(currentIndex, fields);
+      saveStatus.textContent = "";
+      return true;
+    } catch (error) {
+      saveStatus.textContent = String(error);
+      discard.hidden = false;
+      return false;
+    } finally {
+      saving = false;
+      save.disabled = false;
+      if (!background) lockFields(false);
+    }
+  })();
+  try { return await pendingSave; }
+  finally { pendingSave = undefined; }
 }
 
 function searchKey() {
@@ -287,9 +386,10 @@ function showCards(cards) {
   list.replaceChildren(...cards.map((card, index) => {
     const button = document.createElement("button");
     updateCard(button, card);
-    button.onclick = () => {
-      if (!measuring && !saving && index !== currentIndex && canLeaveFicha())
-        show(index).catch(error => { result.textContent = String(error); });
+    button.onclick = async () => {
+      if (index === currentIndex || !await canNavigate()) return;
+      try { await show(index); }
+      catch (error) { saveStatus.textContent = String(error); }
     };
     return button;
   }));
@@ -302,7 +402,7 @@ async function changeRecords(action) {
 }
 
 byId("import-students").onclick = async () => {
-  if (saving || measuring || !canLeaveFicha()) return;
+  if (!await canNavigate()) return;
   saving = true;
   save.disabled = true;
   lockFields(true);
@@ -575,8 +675,8 @@ directorySelection.onchange = () => {
   directoryStatus.textContent = "";
   directoryFields();
 };
-function openDirectory(kind, id) {
-  if (!canNavigate()) return;
+async function openDirectory(kind, id) {
+  if (!await canNavigate()) return;
   directoryKind = kind;
   byId("directory-title").textContent = kind === "companies" ? "Empresas" : "Tutores";
   refreshDirectoryPicker(id ?? directoryRecords()[0]?.id);
@@ -650,7 +750,7 @@ directoryForm.onsubmit = async event => {
 
 for (const button of lifecycleButtons) {
   button.onclick = async () => {
-    if (measuring || saving || !canLeaveFicha()) return;
+    if (!await canNavigate()) return;
     saving = true;
     save.disabled = measure.disabled = true;
     lockFields(true);
@@ -670,10 +770,10 @@ form.onsubmit = async event => {
   saving = true;
   save.disabled = measure.disabled = true;
   lockFields(true);
-  saveStatus.textContent = "Guardando…";
+  saveStatus.textContent = "";
   try {
     await saveFicha(currentIndex, readFields());
-    saveStatus.textContent = "Guardado.";
+    saveStatus.textContent = "";
   } catch (error) {
     saveStatus.textContent = String(error);
   } finally {
@@ -786,7 +886,7 @@ async function benchmark() {
       });
       if (data.phone !== phone || data.target !== target || data.next !== 10 ||
           data.periods[0].hours !== 6.5 || data.periods[1].hours !== 7.25 ||
-          data.periods[0].target !== 300 || data.periods[1].target !== 200 ||
+          data.periods[0].target !== 41 || data.periods[1].target !== 58.5 ||
           data.periods[1].company !== alternate || data.periods[0].start !== "2026-09-07" ||
           data.periods[1].forecastEnd !== "2026-10-02" ||
           data.periods[0].shifts[0].hours !== 4 || data.periods[1].shifts[0].hours !== 5.5 ||
@@ -960,6 +1060,7 @@ async function benchmarkCopy(count) {
 }
 
 async function start() {
+  autoSaveEnabled = !await invoke("automatico");
   measure.hidden = await invoke("edicion_distribuida");
   await window.__TAURI__.window.getCurrentWindow().onCloseRequested(event => {
     if (saving || reportBusy || backupBusy) {
@@ -1004,6 +1105,26 @@ async function start() {
     sections[0].querySelector(".practice-start").checked = true;
     sections[0].querySelector(".practice-end").checked = true;
     const assigned = await saveFicha(0, readFields());
+    if (byId("target").value !== "500" || assigned.target !== 500) throw Error("Falta el objetivo general inicial.");
+    byId("target").value = "650";
+    byId("target").dispatchEvent(new Event("input"));
+    if (Number(byId("remaining").textContent) !== Math.max(0, 650 - assigned.previous - assigned.elapsed)) {
+      throw Error("El objetivo general debe recalcular las horas restantes mientras se edita.");
+    }
+    const objectiveSaved = await saveFicha(0, readFields());
+    if (objectiveSaved.target !== 650) throw Error("El objetivo general no se guardó.");
+    const reads = await Promise.all(Array.from({ length: 12 }, () => invoke("ficha", { index: 0 })));
+    if (reads.some(record => record.target !== 650)) throw Error("Las lecturas simultáneas devolvieron otra ficha.");
+    await show(0);
+    if (byId("target").value !== "650") throw Error("El objetivo no se recuperó al cambiar de ficha.");
+    const displayed = sections[0].querySelector(".forecastEnd");
+    if (displayed.textContent !== spanishDate(objectiveSaved.periods[0].forecastEnd)) throw Error("La fecha debe usar formato español.");
+    secondActive.checked = true;
+    secondActive.dispatchEvent(new Event("change"));
+    if (!displayed.hidden || !displayed.previousElementSibling.hidden) throw Error("El primer periodo no debe mostrar una previsión final con segundo periodo.");
+    secondActive.checked = false;
+    secondActive.dispatchEvent(new Event("change"));
+    if (displayed.hidden) throw Error("Debe mostrarse la previsión del periodo único.");
     selectStudentTab(byId("tab-first"));
     if (sections[0].getClientRects().length === 0 || sections[1].getClientRects().length ||
         !byId("personal").hidden || readFields().periods[0].company !== company.id) {
@@ -1014,18 +1135,43 @@ async function start() {
       throw Error("La pestaña del segundo periodo debe mostrar su control de activación.");
     }
     selectStudentTab(byId("tab-personal"));
-    openDirectory("companies", company.id);
+    await openDirectory("companies", company.id);
     if (directory.hidden || !byId("students-panel").hidden || !byId("directory-list").children.length) {
       throw Error("Empresas debe ocupar un panel con su propia lista.");
     }
-    openDirectory("tutors", tutor.id);
+    await openDirectory("tutors", tutor.id);
     if (byId("tutors").getAttribute("aria-current") !== "page") throw Error("Tutores debe tener navegación propia.");
     await byId("calendar").onclick();
     if (calendarDialog.hidden || !directory.hidden || !byId("calendar-list").children.length) {
       throw Error("El calendario debe mostrar los días excluidos en su propio panel.");
     }
-    byId("students").click();
+    await byId("students").onclick();
     if (byId("students-panel").hidden || !calendarDialog.hidden) throw Error("No se pudo volver al panel de Alumnas.");
+    const temporaryStudent = await changeRecords("create");
+    const temporaryIndex = list.children.length - 1;
+    await list.children[0].onclick();
+    byId("target").value = "675";
+    sections[0].querySelector(".practice-end").checked = false;
+    sections[0].querySelector(".practice-end").onchange();
+    sections[0].querySelector(".practice-end").checked = true;
+    sections[0].querySelector(".practice-end").onchange();
+    sections[0].querySelector(".practice-end-date").value = "2026-10-31";
+    await list.children[temporaryIndex].onclick();
+    if (currentIndex !== temporaryIndex || saving) throw Error("Cambiar de alumna debe guardar y abrir la ficha solicitada.");
+    await list.children[0].onclick();
+    if (byId("target").value !== "675" || !sections[0].querySelector(".practice-end").checked) {
+      throw Error("Se perdieron el objetivo o la finalización al navegar.");
+    }
+    byId("target").value = "";
+    await list.children[temporaryIndex].onclick();
+    await paint();
+    if (currentIndex !== 0 || globalStatus.hidden || !globalStatus.textContent.includes("objetivo general")) {
+      throw Error("Una edición inválida debe mantener la ficha y mostrar su error arriba.");
+    }
+    byId("target").value = "675";
+    await list.children[temporaryIndex].onclick();
+    if (currentIndex !== temporaryIndex) throw Error("Corregir el dato debe permitir navegar.");
+    await deleteRecord("students", temporaryStudent.card.id);
     const initialCalendar = await calendarRequest("calendar");
     await calendarRequest("saveCalendar", { ...initialCalendar, confirmed: true });
     try {
@@ -1103,6 +1249,33 @@ async function start() {
       throw Error("Se permitió cambiar de empresa a una tutora asignada.");
     } catch (error) {
       if (!String(error).includes("Retira las asignaciones")) throw error;
+    }
+    autoSaveEnabled = true;
+    byId("target").value = "700";
+    byId("target").dispatchEvent(new Event("input", { bubbles: true }));
+    for (let frame = 0; (savedRecord.target !== 700 || saving) && frame < 240; frame++) await paint();
+    autoSaveEnabled = false;
+    if (savedRecord.target !== 700 || hasPendingChanges() || byId("target").readOnly || saveStatus.textContent) {
+      throw Error("El autoguardado debe conservar la edición sin bloquear el campo ni mostrar avisos de guardado.");
+    }
+    if ((await invoke("ficha", { index: currentIndex })).target !== 700) throw Error("Falta el objetivo autoguardado en el motor.");
+    autoSaveEnabled = true;
+    const closureDate = sections[0].querySelector(".end").value;
+    sections[0].querySelector(".end").value = "";
+    sections[0].querySelector(".practice-end").checked = false;
+    sections[0].querySelector(".practice-end").dispatchEvent(new Event("change", { bubbles: true }));
+    for (let frame = 0; (savedRecord.periods[0].practice[1] || saving) && frame < 240; frame++) await paint();
+    if (!savedRecord.periods[0].forecastEnd ||
+        sections[0].querySelector(".forecastEnd").textContent !== spanishDate(savedRecord.periods[0].forecastEnd)) {
+      throw Error("El autoguardado debe actualizar el fin previsto en la ficha abierta.");
+    }
+    sections[0].querySelector(".end").value = closureDate;
+    sections[0].querySelector(".practice-end").checked = true;
+    sections[0].querySelector(".practice-end").dispatchEvent(new Event("change", { bubbles: true }));
+    for (let frame = 0; (!savedRecord.periods[0].practice[1] || saving) && frame < 240; frame++) await paint();
+    autoSaveEnabled = false;
+    if (!savedRecord.periods[0].practice[1] || document.getElementById("save")) {
+      throw Error("La ficha debe cerrar el periodo con autoguardado y carecer de botón Guardar ficha.");
     }
     if (!await backupRequest("verifyCopies") || !await invoke("ficha_accion", { action: "verifyImport" })) {
       throw Error("No se verificaron las copias y la importación.");

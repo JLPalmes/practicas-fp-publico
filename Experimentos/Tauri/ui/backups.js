@@ -59,7 +59,7 @@ async function runBackup(action) {
 }
 
 byId("backups").onclick = async () => {
-  if (backupBusy || !canNavigate()) return;
+  if (backupBusy || !await canNavigate()) return;
   backupBusy = true;
   try {
     showCourse(await backupRequest("backupInfo"));

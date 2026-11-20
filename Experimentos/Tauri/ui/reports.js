@@ -4,8 +4,7 @@ let reportBusy = false;
 let reportRequest;
 
 async function openReport(kind = "", id = "") {
-  if (reportBusy || saving || measuring ||
-      (!directory.hidden && !canLeaveDirectory()) || (!calendarDialog.hidden && !calendarCanLeave()) || !canLeaveFicha()) return;
+  if (reportBusy || !await canNavigate()) return;
   reportBusy = true;
   const status = !directory.hidden ? directoryStatus : !calendarDialog.hidden ? calendarStatus : saveStatus;
   try {

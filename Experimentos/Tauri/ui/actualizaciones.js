@@ -31,7 +31,7 @@ async function iniciarActualizaciones() {
         return;
       }
       titulo.textContent = "Prácticas FP " + resultado.version;
-      fecha.textContent = resultado.fecha ?? "";
+      fecha.textContent = resultado.fecha ? resultado.fecha.split("-").reverse().join("/") : "";
       notas.textContent = resultado.notas ?? "";
       estado.textContent = "Al abrirse el instalador se cerrará Prácticas FP.";
       instalar.hidden = false;

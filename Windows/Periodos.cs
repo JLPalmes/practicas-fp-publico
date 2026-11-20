@@ -133,11 +133,29 @@ namespace PracticasFP {
         }
 
         static List<Period> TwoPeriods(object student,object db,DateTime? today=null) {
-            var periods=PeriodOwners(student).Select(owner=> {
-                var calculated=CalculatePeriod(owner,db,today);
-                return new Period {Owner=owner,Company=J.S(owner,"companyID"),Tutor=J.S(owner,"tutorID"),
-                    Start=J.Date(owner,"start"),End=calculated.End,Result=calculated};
-            }).ToList();
+            var owners=PeriodOwners(student).ToList();
+            var periods=new List<Period>();
+            double remaining=Math.Max(0,J.N(student,"targetHours",500)-J.N(student,"previousCourseHours"));
+            for(int i=0;i<owners.Count;i++) {
+                var owner=owners[i];
+                var schedule=J.Clone(owner);
+                DateTime? close=PracticeCompletion(owner);
+                if(!close.HasValue&&J.B(owner,"manualEnd"))close=J.Date(owner,"end");
+                double goal=remaining;
+                if(close.HasValue) {
+                    schedule["end"]=J.Stamp(close.Value);
+                    schedule["manualEnd"]=true;
+                    // Manual counts the complete interval independently of the forecast target.
+                    schedule["targetHours"]=0.01;
+                    goal=CalculatePeriod(schedule,db,today).Manual;
+                }
+                schedule["targetHours"]=Math.Max(goal,0.01);
+                var calculated=CalculatePeriod(schedule,db,today);
+                if(!close.HasValue&&remaining==0)calculated=new Calculation();
+                periods.Add(new Period {Owner=owner,Company=J.S(owner,"companyID"),Tutor=J.S(owner,"tutorID"),
+                    Start=J.Date(owner,"start"),End=calculated.End,Result=calculated,Target=goal});
+                remaining=Math.Max(0,remaining-(close.HasValue?goal:calculated.Elapsed));
+            }
             if(periods.Count==2&&J.B(periods[1].Owner,"hasStart")&&periods[0].End.HasValue&&periods[1].Start<=periods[0].End.Value) {
                 periods[1].Result.Error="El segundo periodo debe comenzar después de finalizar el primero.";
                 periods[1].Result.Elapsed=0;

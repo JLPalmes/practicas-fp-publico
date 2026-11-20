@@ -2,10 +2,13 @@
 use semver::Version;
 use serde_json::{json, Value};
 use std::{sync::Mutex, time::Duration};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_updater::{Error, Update, UpdaterExt};
 
-const CLAVE: Option<&str> = option_env!("PRACTICASFP_TAURI_PUBLIC_KEY");
+const CLAVE: Option<&str> = Some(match option_env!("PRACTICASFP_TAURI_PUBLIC_KEY") {
+    Some(clave) => clave,
+    None => include_str!("../updater-public-key.txt"),
+});
 const CATALOGO: &str = "https://github.com/JLPalmes/practicas-fp-publico/releases/download/actualizaciones-windows/latest.json";
 
 #[tauri::command]
@@ -27,6 +30,7 @@ pub async fn buscar_actualizacion(
     let catalogo = url
         .parse()
         .map_err(|_| "El catálogo de actualizaciones no es válido.")?;
+    let closing_app = app.clone();
     let actualizacion = app
         .updater_builder()
         .endpoints(vec![catalogo])
@@ -34,6 +38,14 @@ pub async fn buscar_actualizacion(
         .pubkey(clave)
         .timeout(Duration::from_secs(30))
         .restart_after_install(false)
+        .on_before_exit(move || {
+            if let Ok(mut motor) = closing_app
+                .state::<std::sync::Arc<Mutex<super::Motor>>>()
+                .lock()
+            {
+                motor.stop();
+            }
+        })
         .version_comparator(|actual, publicada| version_admitida(&actual, &publicada.version))
         .build()
         .map_err(|_| "No se pudo iniciar el actualizador.")?
