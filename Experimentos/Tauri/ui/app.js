@@ -31,6 +31,9 @@ for (const [index, tab] of tabs.entries()) {
 selectStudentTab(tabs[0]);
 
 function navigateWorkspace(section) {
+  for (const id of ["save-status", "directory-status", "calendar-status"]) byId(id).textContent = "";
+  globalStatus.textContent = "";
+  globalStatus.hidden = true;
   byId("students-panel").hidden = section !== "students";
   byId("directory-dialog").hidden = section !== "companies" && section !== "tutors";
   byId("calendar-dialog").hidden = section !== "calendar";
@@ -41,7 +44,7 @@ function navigateWorkspace(section) {
 }
 
 async function canNavigate() {
-  return !saving && !measuring && (directory.hidden || canLeaveDirectory()) &&
+  return !saving && !measuring && (directory.hidden || await savePendingDirectory()) &&
     (calendarDialog.hidden || calendarCanLeave()) && await savePendingFicha();
 }
 byId("students").onclick = async () => { if (await canNavigate()) navigateWorkspace("students"); };
@@ -457,6 +460,10 @@ let directoryKind;
 let directoryBusy = false;
 let directoryDirty = false;
 let directoryVersion = 0;
+let directoryRevision = 0;
+let directorySaveTimer;
+let pendingDirectorySave;
+let pendingDirectoryData;
 let agreementEdits = [];
 let contactsToSave = [];
 const companyResponses = [
@@ -540,8 +547,8 @@ async function loadDirectoryDetails(id) {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = link.label || "Sin nombre";
-      button.onclick = () => {
-        if (!canLeaveDirectory()) return;
+      button.onclick = async () => {
+        if (!await savePendingDirectory()) return;
         if (link.kind === "students") {
           const index = Array.from(list.children).findIndex(card => card.dataset.id === link.id);
           if (index < 0) return;
@@ -605,7 +612,7 @@ async function loadDirectoryDetails(id) {
       const updateDate = () => { doneOn.parentElement.hidden = !completed.checked; };
       completed.onchange = updateDate;
       updateDate();
-      register.onclick = () => { register.hidden = true; editor.hidden = false; directoryDirty = true; };
+      register.onclick = () => { register.hidden = true; editor.hidden = false; markDirectoryChanged(); };
       item.append(register, editor);
       contactsToSave.push(() => {
         if (editor.hidden || (contact.saved && planned.value === contact.planned && completed.checked === contact.completed &&
@@ -652,8 +659,8 @@ function renderDirectoryCards() {
   byId("directory-list").replaceChildren(...cards);
 }
 
-function selectDirectoryRecord(id) {
-  if (!canLeaveDirectory()) return;
+async function selectDirectoryRecord(id) {
+  if (!await savePendingDirectory()) return;
   directorySelection.value = id;
   directorySelection.dataset.saved = id;
   directoryStatus.textContent = "";
@@ -667,13 +674,18 @@ function canLeaveDirectory() {
   byId("directory-discard").hidden = false;
   return false;
 }
-directoryForm.addEventListener("input", () => { directoryDirty = true; });
-directoryForm.addEventListener("change", () => { directoryDirty = true; });
-directorySelection.onchange = () => {
-  if (!canLeaveDirectory()) { directorySelection.value = directorySelection.dataset.saved; return; }
-  directorySelection.dataset.saved = directorySelection.value;
-  directoryStatus.textContent = "";
-  directoryFields();
+function markDirectoryChanged() {
+  directoryDirty = true;
+  directoryRevision++;
+  clearTimeout(directorySaveTimer);
+  if (autoSaveEnabled) directorySaveTimer = setTimeout(() => savePendingDirectory(true), 700);
+}
+directoryForm.addEventListener("input", markDirectoryChanged);
+directoryForm.addEventListener("change", markDirectoryChanged);
+directorySelection.onchange = async () => {
+  const id = directorySelection.value;
+  directorySelection.value = directorySelection.dataset.saved;
+  await selectDirectoryRecord(id);
 };
 async function openDirectory(kind, id) {
   if (!await canNavigate()) return;
@@ -717,7 +729,7 @@ byId("delete-student").onclick = async () => {
   finally { saving = false; lockFields(false); save.disabled = currentIndex === undefined; }
 };
 byId("directory-delete").onclick = async () => {
-  if (!canLeaveDirectory() || !directorySelection.value || !await confirmDelete()) return;
+  if (!await savePendingDirectory() || !directorySelection.value || !await confirmDelete()) return;
   directoryBusy = true;
   try {
     await deleteRecord(directoryKind, directorySelection.value);
@@ -726,26 +738,63 @@ byId("directory-delete").onclick = async () => {
   } catch (error) { directoryStatus.textContent = String(error); }
   finally { directoryBusy = false; if (currentIndex !== undefined) save.disabled = false; }
 };
+async function savePendingDirectory(background = false) {
+  clearTimeout(directorySaveTimer);
+  if (pendingDirectorySave) {
+    if (!await pendingDirectorySave) return false;
+    return savePendingDirectory(background);
+  }
+  if (directoryBusy) return false;
+  if (directoryDirty) {
+    const revision = directoryRevision;
+    const kind = directoryKind;
+    const fields = { ...Object.fromEntries(new FormData(directoryForm)), id: directorySelection.value,
+      annexEdits: agreementEdits.slice(), contacts: contactsToSave.map(read => read()).filter(Boolean) };
+    directoryBusy = true;
+    directoryStatus.textContent = "";
+    pendingDirectorySave = (async () => {
+      try {
+        const data = await invoke("ficha_accion", { action: "saveDirectory", kind, fields });
+        pendingDirectoryData = data;
+        companies = data.companies;
+        tutors = data.tutors;
+        const id = fields.id || directoryRecords().at(-1)?.id;
+        directorySelection.replaceChildren(new Option("Nueva ficha", ""),
+          ...directoryRecords().map(record => new Option(record.name || "Sin nombre", record.id)));
+        directorySelection.value = directorySelection.dataset.saved = id;
+        agreementEdits.splice(0, fields.annexEdits.length);
+        directoryDirty = directoryRevision !== revision;
+        byId("directory-heading").textContent = directoryRecords().find(record => record.id === id)?.name || "Sin nombre";
+        byId("directory-delete").hidden = false;
+        byId("company-report").hidden = kind !== "companies";
+        renderDirectoryCards();
+        directoryStatus.textContent = "";
+        return true;
+      } catch (error) {
+        directoryStatus.textContent = String(error);
+        byId("directory-discard").hidden = false;
+        return false;
+      } finally { directoryBusy = false; }
+    })();
+    let success;
+    try { success = await pendingDirectorySave; }
+    finally { pendingDirectorySave = undefined; }
+    if (!success) return false;
+    if (directoryDirty) {
+      if (!background) return savePendingDirectory();
+      if (autoSaveEnabled) directorySaveTimer = setTimeout(() => savePendingDirectory(true), 700);
+    }
+  }
+  if (!background && pendingDirectoryData) {
+    const data = pendingDirectoryData;
+    pendingDirectoryData = undefined;
+    await useDirectory("refresh", data);
+  }
+  return true;
+}
 directoryForm.onsubmit = async event => {
   event.preventDefault();
-  if (directoryBusy) return;
-  directoryBusy = true;
-  const fields = { ...Object.fromEntries(new FormData(directoryForm)), id: directorySelection.value,
-    annexEdits: agreementEdits, contacts: contactsToSave.map(read => read()).filter(Boolean) };
-  const controls = [directorySelection, ...directoryForm.elements];
-  for (const control of controls) control.disabled = true;
-  try {
-    const data = await invoke("ficha_accion", { action: "saveDirectory", kind: directoryKind, fields });
-    loadDirectory(data);
-    refreshDirectoryPicker(fields.id || directoryRecords().at(-1)?.id);
-    if (currentIndex !== undefined) await show(currentIndex);
-    directoryStatus.textContent = "Guardado.";
-  } catch (error) {
-    directoryStatus.textContent = String(error);
-  } finally {
-    directoryBusy = false;
-    for (const control of controls) control.disabled = false;
-  }
+  await savePendingDirectory();
 };
 
 for (const button of lifecycleButtons) {
@@ -1277,6 +1326,25 @@ async function start() {
     if (!savedRecord.periods[0].practice[1] || document.getElementById("save")) {
       throw Error("La ficha debe cerrar el periodo con autoguardado y carecer de botón Guardar ficha.");
     }
+    await openDirectory("companies", company.id);
+    autoSaveEnabled = true;
+    const companyNotes = byId("directory-notes");
+    companyNotes.value = "Autoguardado de empresa";
+    companyNotes.dispatchEvent(new Event("input", { bubbles: true }));
+    for (let frame = 0; (directoryDirty || directoryBusy) && frame < 240; frame++) await paint();
+    if (directoryDirty || byId("directory-notes") !== companyNotes || companyNotes.disabled || directoryStatus.textContent ||
+        directoryForm.querySelector('button.primary')) throw Error("La empresa debe autoguardarse sin reconstruir el editor ni mostrar Guardar o Guardado.");
+    companyNotes.value = "Empresa guardada al navegar";
+    companyNotes.dispatchEvent(new Event("input", { bubbles: true }));
+    await openDirectory("tutors", tutor.id);
+    if (companies.find(item => item.id === company.id).notes !== "Empresa guardada al navegar") throw Error("Navegar debe completar el guardado de empresa.");
+    byId("directory-phone").value = "123456789";
+    byId("directory-phone").dispatchEvent(new Event("input", { bubbles: true }));
+    await byId("students").onclick();
+    autoSaveEnabled = false;
+    const persistedDirectory = await invoke("ficha_accion", { action: "directory" });
+    if (persistedDirectory.tutors.find(item => item.id === tutor.id).phone !== "123456789" ||
+        !directory.hidden || globalStatus.textContent || directoryStatus.textContent) throw Error("El tutor debe guardarse al navegar sin dejar mensajes persistentes.");
     if (!await backupRequest("verifyCopies") || !await invoke("ficha_accion", { action: "verifyImport" })) {
       throw Error("No se verificaron las copias y la importación.");
     }

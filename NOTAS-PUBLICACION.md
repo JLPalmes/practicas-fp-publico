@@ -1,8 +1,8 @@
-# Prácticas FP 2.1.9 para Windows
+# Prácticas FP 2.1.10 para Windows
 
 La aplicación se denomina Prácticas FP. La edición actual es la única que se mantiene para Windows.
 
-Alumnas guarda automáticamente al editar y al navegar, sin mensajes rutinarios de guardado.
+Alumnas, Empresas y Tutores guardan automáticamente al editar y al navegar, sin botones ni mensajes rutinarios de guardado. El guardado conserva el foco y los campos de edición.
 Los periodos usan una sola fecha de cierre. Las horas del periodo cerrado reflejan
 las cumplidas, y el siguiente periodo recibe las que faltan para completar el
 objetivo general, descontando las horas de cursos anteriores.

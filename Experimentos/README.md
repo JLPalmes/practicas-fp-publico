@@ -308,3 +308,7 @@ La prueba del paquete comprueba el cambio de panel, la visibilidad del calendari
 ### Cuadrícula mensual de Tauri 2.1.2
 
 Calendario abre el mes actual, o el mes del límite del curso si hoy cae fuera de él. La cuadrícula muestra los festivos e intervalos excluidos en naranja, y los sábados y domingos en gris. Al pulsar un día se muestra su fecha y el nombre completo de las exclusiones, con acceso a su ficha de edición. La lista lateral lleva al mes correspondiente. Las pruebas abarcan un día añadido, un sábado, un día ordinario y el intervalo de Navidad entre diciembre y enero.
+
+### Autoguardado de Empresas y Tutores 2.1.10
+
+Las fichas de empresas y tutores se guardan al editar y antes de cambiar de ficha o panel. Se retira Guardar y el aviso de éxito persistente; los errores siguen visibles. El guardado en segundo plano conserva el campo y el foco de escritura. La prueba del paquete verifica ambas fichas y el guardado al navegar.

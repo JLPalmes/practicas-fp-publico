@@ -1,11 +1,11 @@
 # Prácticas FP para Windows
 
-Versión **2.1.9**, para Windows 10 u 11 de 64 bits, con Microsoft Edge WebView2 y
+Versión **2.1.10**, para Windows 10 u 11 de 64 bits, con Microsoft Edge WebView2 y
 .NET Framework 4.8 recomendado.
 
 ## Instalar
 
-Ejecuta Instalar-PracticasFP-2.1.9-x64.exe y pulsa Instalar. La aplicación se abre
+Ejecuta Instalar-PracticasFP-2.1.10-x64.exe y pulsa Instalar. La aplicación se abre
 desde Prácticas FP en el escritorio o el menú Inicio. Se instala para tu usuario
 y conserva los datos al actualizar.
 
