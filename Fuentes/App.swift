@@ -1019,7 +1019,16 @@ private final class UpdateNotice: NSObject, ObservableObject, SPUStandardUserDri
         startingUpdater: true, updaterDelegate: nil, userDriverDelegate: self
     )
 
-    func start() { _ = controller }
+    private var started = false
+
+    func start() {
+        guard !started else { return }
+        started = true
+        let updater = controller.updater
+        if updater.automaticallyChecksForUpdates {
+            updater.checkForUpdatesInBackground()
+        }
+    }
     func check() { controller.checkForUpdates(nil) }
 
     var supportsGentleScheduledUpdateReminders: Bool { true }
