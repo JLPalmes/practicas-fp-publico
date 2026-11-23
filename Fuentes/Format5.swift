@@ -17,7 +17,7 @@ struct Format5Period: Decodable, Identifiable {
     let paperwork: [Step]
     let documents: [DocumentFlow]?
 
-    func forecast(in calendar: Database, today: Date) -> Calculation {
+    func forecast(in calendar: Database, today: Date, target: Double? = nil) -> Calculation {
         guard active else { return Calculation() }
         guard calendar.companies.contains(where: { $0.id == companyID }) else {
             return Calculation(error: "Asigna una empresa al periodo.")
@@ -36,7 +36,7 @@ struct Format5Period: Decodable, Identifiable {
         schedule.end = endDay
         schedule.manualEnd = fixedEnd
         schedule.hours = hours
-        schedule.targetHours = fixedEnd && targetHours == 0 ? 0.01 : targetHours
+        schedule.targetHours = fixedEnd ? 0.01 : (target ?? targetHours)
         schedule.shifts = shifts
         var result = calculate(schedule, calendar, today: today)
         if fixedEnd && result.error == nil {
@@ -58,7 +58,14 @@ struct Format5Student: Decodable {
 
     func forecasts(in calendar: Database, today: Date) -> [Calculation] {
         let active = (practicePeriods ?? []).filter(\.active)
-        var results = active.map { $0.forecast(in: calendar, today: today) }
+        var remaining = max(0, (targetHours ?? 500) - (previousCourseHours ?? 0))
+        var results: [Calculation] = []
+        for period in active {
+            let closed = period.manualEnd || period.paperwork.dropFirst(6).first?.done == true
+            let result = !closed && remaining == 0 ? Calculation() : period.forecast(in: calendar, today: today, target: remaining)
+            results.append(result)
+            remaining = max(0, remaining - (closed ? result.scheduledToManual : result.elapsed))
+        }
         if active.count == 2, active[1].hasStart, let firstEnd = results[0].end,
            cal.startOfDay(for: active[1].start) <= firstEnd {
             results[1] = Calculation(error: "El segundo periodo debe comenzar después de finalizar el primero.")

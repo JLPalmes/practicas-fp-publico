@@ -13,6 +13,14 @@ import PDFKit
         s.targetHours = 12
         let result = calculate(s, db, today: day("2027-01-08"))
         check(result.end == day("2027-01-05") && result.lastHours == 4 && result.elapsed == 12, "Objetivo configurable respeta última jornada y límite de progreso")
+        var credited = s
+        credited.targetHours = 40
+        credited.previousCourseHours = 24
+        check(calculate(credited, db, today: day("2027-01-04")).end == day("2027-01-05"),
+              "La fecha final descuenta las horas cumplidas en el curso anterior")
+        credited.previousCourseHours = 40
+        check(calculate(credited, db).end == nil && calculate(credited, db).error == nil,
+              "Un objetivo ya cumplido no genera otra fecha final")
         s.targetHours = 0
         check(calculate(s, db).error != nil, "Objetivo cero se rechaza")
         s.targetHours = 10001
@@ -231,6 +239,8 @@ import PDFKit
             ]
         }
         var first = period("2026-11-02")
+        first["manualEnd"] = true
+        first["end"] = day("2026-11-03").timeIntervalSinceReferenceDate
         first["futureField"] = ["note": "dato ficticio"]
         var second = period("2026-11-04")
         records[0]["practicePeriods"] = [first, second]
@@ -242,8 +252,15 @@ import PDFKit
         let loaded = copy.students[0]
         let results = loaded.forecasts(in: copy.calendar, today: day("2026-11-05"))
         check(copy.original == bytes && loaded.nextCourseHours == 12, "Formato 5 conserva la copia y las horas del siguiente curso")
+        var expected = Student()
+        expected.hasStart = true
+        expected.start = day("2026-11-04")
+        expected.hours = 7
+        expected.targetHours = 456
+        check(results[1].end == calculate(expected, copy.calendar, today: day("2026-11-05")).end,
+              "La previsión del segundo periodo descuenta 30 horas anteriores y 14 del primero cerrado")
         check(results.count == 2 && results[0].end == day("2026-11-03") && results[1].elapsed == 7, "Los dos periodos calculan su previsión por separado")
-        check(loaded.remainingHours(elapsed: results.reduce(0) { $0 + $1.elapsed }) == 453, "Las horas pendientes descuentan curso previo y previsión")
+        check(loaded.remainingHours(elapsed: results.reduce(0) { $0 + $1.elapsed }) == 449, "Las horas pendientes descuentan curso previo y previsión")
         let periodID = loaded.practicePeriods![0].id
         var edit = Format5ScheduleEdit(loaded.practicePeriods![0])
         edit.hours = 5
@@ -251,7 +268,7 @@ import PDFKit
         let edited = try copy.editingSchedule(studentID: loaded.id, periodID: periodID, edit: edit)
         let reopened = try Format5Preview(data: edited.original)
         check(reopened.students[0].practicePeriods?[0].hours == 5 &&
-              reopened.students[0].forecasts(in: reopened.calendar, today: day("2026-11-05"))[0].end == day("2026-11-04"),
+              reopened.students[0].forecasts(in: reopened.calendar, today: day("2026-11-05"))[0].end == day("2026-11-03"),
               "Reabrir una copia editada recupera el horario y recalcula el fin")
         let raw = try JSONSerialization.jsonObject(with: edited.original) as! [String: Any]
         let editedPeriods = (raw["students"] as! [[String: Any]])[0]["practicePeriods"] as! [[String: Any]]

@@ -169,7 +169,9 @@ func calculate(_ s: Student, _ db: Database, today: Date = Date()) -> Calculatio
     guard s.requiredHours.isFinite && s.requiredHours > 0 && s.requiredHours <= 10000 else {
         return Calculation(error: "Las horas objetivo deben ser mayores de 0 y no superar 10.000.")
     }
+    let target = max(0, s.requiredHours - (s.previousCourseHours ?? 0))
     guard let start = s.firstPracticeStart else { return Calculation() }
+    guard target > 0 else { return Calculation() }
     guard !s.hasStart || (s.hours.isFinite && s.hours > 0 && s.hours <= 24) else {
         return Calculation(error: "La jornada inicial debe tener más de 0 y hasta 24 horas.")
     }
@@ -205,10 +207,10 @@ func calculate(_ s: Student, _ db: Database, today: Date = Date()) -> Calculatio
         }
         if !excluded {
             let h = changes.last(where: { cal.startOfDay(for: $0.from) <= d })?.hours ?? s.hours
-            if d < now { result.elapsed = min(s.requiredHours, result.elapsed + h) }
+            if d < now { result.elapsed += closures[period] != nil ? h : min(h, max(0, target - result.elapsed)) }
             if d <= manual { result.scheduledToManual += h }
-            if total < s.requiredHours {
-                if total + h >= s.requiredHours - 0.000001 { result.end = d; result.lastHours = s.requiredHours - total }
+            if total < target {
+                if total + h >= target - 0.000001 { result.end = d; result.lastHours = target - total }
                 total += h
             }
         }
