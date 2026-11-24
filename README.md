@@ -23,7 +23,7 @@ Para recuperar datos anteriores, exporta una copia desde la versión 1 y restáu
 
 ## Licencia
 
-Copyright © 2026 Juan Luis (JLPalmes).
+Copyright © 2026 Juan Luis Palmés Martín (JLPalmes).
 Código, documentación y recursos propios bajo **GNU AGPL versión 3 exclusivamente**
 (`AGPL-3.0-only`). Consulta [LICENSE](LICENSE) y [el aviso](AVISO-LICENCIA.txt).
 Este programa se distribuye sin garantía.

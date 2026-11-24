@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Juan Luis (JLPalmes)
+// Copyright (C) 2026 Juan Luis Palmés Martín (JLPalmes)
 import AppKit
 let output = CommandLine.arguments[1]
 func draw(_ pixels: Int, path: String) {

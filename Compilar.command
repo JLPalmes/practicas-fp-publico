@@ -1,6 +1,6 @@
 #!/bin/zsh
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Juan Luis (JLPalmes)
+# Copyright (C) 2026 Juan Luis Palmés Martín (JLPalmes)
 set -eu
 cd "$(dirname "$0")"
 # macOS releases can advance independently of Windows.

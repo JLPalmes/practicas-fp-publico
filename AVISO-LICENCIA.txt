@@ -1,5 +1,5 @@
 Prácticas FP
-Copyright (C) 2026 Juan Luis (JLPalmes)
+Copyright (C) 2026 Juan Luis Palmés Martín (JLPalmes)
 
 Este programa es software libre: puede redistribuirlo y modificarlo bajo los
 términos de la GNU Affero General Public License, versión 3 exclusivamente

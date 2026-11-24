@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Juan Luis (JLPalmes)
+# Copyright (C) 2026 Juan Luis Palmés Martín (JLPalmes)
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 from html import escape
