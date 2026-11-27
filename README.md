@@ -9,9 +9,9 @@ Los datos se guardan localmente, sin cuentas ni servicios en la nube.
 
 **Versiones estables disponibles**
 
-Mac 2.1.13 y Windows 2.1.10.
+Mac 2.1.13 y Windows 2.1.11.
 
-- Windows x64, Windows 10 u 11 con Microsoft Edge WebView2. [Descargar instalador Windows](https://github.com/JLPalmes/practicas-fp-publico/releases/download/windows-2.1.10/Instalar-PracticasFP-2.1.10-x64.exe)
+- Windows x64, Windows 10 u 11 con Microsoft Edge WebView2. [Descargar instalador Windows](https://github.com/JLPalmes/practicas-fp-publico/releases/download/windows-2.1.11/Instalar-PracticasFP-2.1.11-x64.exe)
 - Mac con Apple Silicon, macOS 14 o posterior. [Descargar instalador Mac (.dmg)](https://github.com/JLPalmes/practicas-fp-publico/releases/download/mac-v2.1.13/PracticasFP-2.1.13-AppleSilicon.dmg)
 
 Para recuperar datos anteriores, exporta una copia desde la versión 1 y restáurala en la 2. La versión 2 usa su propia carpeta de datos. Consulta la [guía de Windows](Windows/LEEME.md).

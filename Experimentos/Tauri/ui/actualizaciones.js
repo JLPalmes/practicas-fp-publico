@@ -10,7 +10,6 @@ async function iniciarActualizaciones() {
   const estado = byId("actualizacion-estado");
   const instalar = byId("actualizacion-instalar");
   const cerrar = byId("actualizacion-cerrar");
-  const ultimaBusqueda = "actualizaciones.ultimaBusqueda";
   let ocupado = false;
 
   async function comprobar(manual) {
@@ -24,7 +23,6 @@ async function iniciarActualizaciones() {
     estado.textContent = "Buscando actualizaciones…";
     if (manual) dialogo.showModal();
     try {
-      localStorage.setItem(ultimaBusqueda, String(Date.now()));
       const resultado = await invoke("buscar_actualizacion");
       if (!resultado) {
         estado.textContent = "Ya tienes la última versión.";
@@ -52,9 +50,7 @@ async function iniciarActualizaciones() {
   cerrar.onclick = () => dialogo.close();
   instalar.onclick = async () => {
     if (ocupado) return;
-    if (saving || reportBusy || backupBusy || !canLeaveFicha() ||
-        (!directory.hidden && !canLeaveDirectory()) ||
-        (!calendarDialog.hidden && !calendarCanLeave())) {
+    if (reportBusy || backupBusy || !await canNavigate()) {
       estado.textContent = "Guarda o descarta los cambios pendientes antes de instalar.";
       return;
     }
@@ -76,7 +72,5 @@ async function iniciarActualizaciones() {
     if (instalar.disabled) event.preventDefault();
   });
   buscar.hidden = false;
-  if (Date.now() - Number(localStorage.getItem(ultimaBusqueda)) >= 86400000) {
-    void comprobar(false);
-  }
+  void comprobar(false);
 }

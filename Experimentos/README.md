@@ -312,3 +312,7 @@ Calendario abre el mes actual, o el mes del límite del curso si hoy cae fuera d
 ### Autoguardado de Empresas y Tutores 2.1.10
 
 Las fichas de empresas y tutores se guardan al editar y antes de cambiar de ficha o panel. Se retira Guardar y el aviso de éxito persistente; los errores siguen visibles. El guardado en segundo plano conserva el campo y el foco de escritura. La prueba del paquete verifica ambas fichas y el guardado al navegar.
+
+### Windows 2.1.11
+
+Incorpora los cambios compartidos de Mac 2.1.12 y los avisos de autoría. Windows ya descuenta las horas anteriores y las de los periodos cerrados. La búsqueda de actualizaciones se realiza en cada arranque y completa el autoguardado antes de instalar. La publicación del catálogo firmado de Windows sigue pendiente de la clave privada custodiada en el Mac.
